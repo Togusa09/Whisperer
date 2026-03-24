@@ -113,6 +113,7 @@ Acceptance Criteria:
 Priority: P1
 Effort: M
 Dependencies: 5
+Status: Completed
 Description:
 - Retrieval stages:
   - date filter
@@ -195,6 +196,5 @@ A feature is done when:
 
 ## Immediate Next Tickets
 
-1. Build retrieval pipeline v1 with date/source filters (P1 #6).
-2. Add in-universe source handling and confidence framing (P1 #7).
-3. Add letter archive and timeline browser UI (P1 #8).
+1. Add in-universe source handling and confidence framing (P1 #7).
+2. Add letter archive and timeline browser UI (P1 #8).

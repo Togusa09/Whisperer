@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 
@@ -9,15 +10,27 @@ namespace Whisperer
         public StoryEventLedger storyEventLedger;
         [Range(1, 20)] public int maxLedgerEntries = 6;
 
+        [Header("Retrieval")]
+        public bool useRetrievalPipeline = true;
+        public bool includeCanon = true;
+        public bool includeLocal = true;
+        public bool includeScholarly = true;
+        public bool includeInUniverse = true;
+        public bool includeSpeculative = true;
+        public bool includeGeneratedLetters = true;
+
         [Header("Debug")]
         public bool debugLogPrompts;
         [TextArea(8, 20)]
         [SerializeField] string lastSystemPrompt = "";
         [TextArea(6, 16)]
         [SerializeField] string lastUserPrompt = "";
+        [TextArea(6, 16)]
+        [SerializeField] string lastRetrievalTrace = "";
 
         public string LastSystemPrompt => lastSystemPrompt;
         public string LastUserPrompt => lastUserPrompt;
+        public string LastRetrievalTrace => lastRetrievalTrace;
 
         public string BuildSystemPrompt(GameTimeManager timeManager, string previousAssistantLetter)
         {
@@ -56,7 +69,7 @@ namespace Whisperer
 
             if (storyEventLedger != null)
             {
-                string contextBlock = storyEventLedger.BuildContextBlock(replyDate, maxLedgerEntries);
+                string contextBlock = BuildRetrievalContext(replyDate);
                 if (!string.IsNullOrWhiteSpace(contextBlock))
                 {
                     builder.AppendLine();
@@ -73,6 +86,10 @@ namespace Whisperer
             if (debugLogPrompts)
             {
                 Debug.Log($"[Whisperer] System prompt built:\n{lastSystemPrompt}");
+                if (!string.IsNullOrWhiteSpace(lastRetrievalTrace))
+                {
+                    Debug.Log($"[Whisperer] {lastRetrievalTrace}");
+                }
             }
 
             return lastSystemPrompt;
@@ -101,6 +118,38 @@ namespace Whisperer
             }
 
             return lastUserPrompt;
+        }
+
+        string BuildRetrievalContext(DateTime replyDate)
+        {
+            if (!useRetrievalPipeline)
+            {
+                lastRetrievalTrace = "";
+                return storyEventLedger.BuildContextBlock(replyDate, maxLedgerEntries);
+            }
+
+            HashSet<string> allowedSourceTypes = BuildAllowedSourceTypes();
+            StoryRetrievalPipeline.RetrievalResult retrievalResult = StoryRetrievalPipeline.Retrieve(
+                storyEventLedger,
+                replyDate,
+                maxLedgerEntries,
+                allowedSourceTypes,
+                debugLogPrompts);
+
+            lastRetrievalTrace = retrievalResult.trace;
+            return StoryRetrievalPipeline.BuildContextBlock(retrievalResult.entries);
+        }
+
+        HashSet<string> BuildAllowedSourceTypes()
+        {
+            HashSet<string> sources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (includeCanon) sources.Add(StoryEventMetadataValidator.SourceCanon);
+            if (includeLocal) sources.Add(StoryEventMetadataValidator.SourceLocal);
+            if (includeScholarly) sources.Add(StoryEventMetadataValidator.SourceScholarly);
+            if (includeInUniverse) sources.Add(StoryEventMetadataValidator.SourceInUniverse);
+            if (includeSpeculative) sources.Add(StoryEventMetadataValidator.SourceSpeculative);
+            if (includeGeneratedLetters) sources.Add(StoryEventMetadataValidator.SourceGeneratedLetter);
+            return sources;
         }
     }
 }

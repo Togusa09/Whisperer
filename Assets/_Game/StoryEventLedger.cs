@@ -114,6 +114,18 @@ namespace Whisperer
             return active;
         }
 
+        public List<StoryEventEntry> GetEntriesSnapshot()
+        {
+            EnsureLoaded();
+            List<StoryEventEntry> snapshot = new List<StoryEventEntry>(entries.Count);
+            for (int i = 0; i < entries.Count; i++)
+            {
+                snapshot.Add(entries[i].Clone());
+            }
+
+            return snapshot;
+        }
+
         public string BuildContextBlock(DateTime date, int maxEntries = 6)
         {
             List<StoryEventEntry> active = GetEventsForDate(date, maxEntries);
