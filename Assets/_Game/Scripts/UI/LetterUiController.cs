@@ -7,6 +7,53 @@ using UnityEngine.UIElements;
 
 namespace Whisperer
 {
+    public abstract class LetterModelClient : MonoBehaviour
+    {
+        public abstract bool IsConfigured { get; }
+        public abstract Task<string> GenerateReply(string systemPrompt, string userPrompt, Action<string> onUpdate);
+    }
+
+    public class LlmAgentLetterModelClient : LetterModelClient
+    {
+        public LLMAgent llmAgent;
+
+        public override bool IsConfigured =>
+            llmAgent != null && llmAgent.llm != null && !string.IsNullOrWhiteSpace(llmAgent.llm.model);
+
+        public override async Task<string> GenerateReply(string systemPrompt, string userPrompt, Action<string> onUpdate)
+        {
+            if (!IsConfigured) throw new InvalidOperationException("LLM model not configured in LLMStack.");
+
+            llmAgent.systemPrompt = systemPrompt;
+            StringBuilder stream = new StringBuilder();
+            string lastStreamUpdate = "";
+
+            await llmAgent.Chat(
+                userPrompt,
+                update =>
+                {
+                    if (string.IsNullOrEmpty(update)) return;
+
+                    // Some backends stream token-by-token while others resend the full accumulated text.
+                    if (!string.IsNullOrEmpty(lastStreamUpdate) && update.StartsWith(lastStreamUpdate, StringComparison.Ordinal))
+                    {
+                        stream.Clear();
+                        stream.Append(update);
+                    }
+                    else
+                    {
+                        stream.Append(update);
+                    }
+
+                    lastStreamUpdate = update;
+                    onUpdate?.Invoke(stream.ToString());
+                }
+            );
+
+            return stream.ToString();
+        }
+    }
+
     [RequireComponent(typeof(UIDocument))]
     public class LetterUiController : MonoBehaviour
     {
@@ -15,6 +62,7 @@ namespace Whisperer
 
         [Header("References")]
         public LLMAgent llmAgent;
+        public LetterModelClient modelClient;
         public GameTimeManager timeManager;
         public StoryEventLedger storyEventLedger;
         public LetterPromptBuilder letterPromptBuilder;
@@ -72,6 +120,7 @@ namespace Whisperer
             styleSheet = Resources.Load<StyleSheet>(StyleResourcePath);
 
             if (llmAgent == null) llmAgent = FindAnyObjectByType<LLMAgent>();
+            if (modelClient == null) modelClient = GetComponent<LetterModelClient>();
             if (timeManager == null) timeManager = FindAnyObjectByType<GameTimeManager>();
             if (storyEventLedger == null) storyEventLedger = FindAnyObjectByType<StoryEventLedger>();
             if (letterPromptBuilder == null) letterPromptBuilder = FindAnyObjectByType<LetterPromptBuilder>();
@@ -179,19 +228,27 @@ namespace Whisperer
 
         async Task SendTurn()
         {
+            await SendTurnInternal(null);
+        }
+
+        async Task SendTurnInternal(string bodyOverride)
+        {
             if (requestInFlight) return;
-            if (llmAgent == null)
+
+            LetterModelClient activeModelClient = ResolveModelClient();
+            if (activeModelClient == null)
             {
-                if (statusLabel != null) statusLabel.text = "No LLMAgent found.";
+                if (statusLabel != null) statusLabel.text = "No model client found.";
                 return;
             }
-            if (llmAgent.llm == null || string.IsNullOrWhiteSpace(llmAgent.llm.model))
+
+            if (!activeModelClient.IsConfigured)
             {
                 if (statusLabel != null) statusLabel.text = "LLM model not configured in LLMStack.";
                 return;
             }
 
-            string body = bodyField?.value?.Trim() ?? "";
+            string body = bodyOverride ?? bodyField?.value?.Trim() ?? "";
             if (string.IsNullOrWhiteSpace(body))
             {
                 if (statusLabel != null) statusLabel.text = "Letter body is empty.";
@@ -208,37 +265,15 @@ namespace Whisperer
             string playerLetter = ComposePlayerLetter(body, sendDate);
             AddHistoryEntry("Wilmarth", playerLetter);
 
-            llmAgent.systemPrompt = letterPromptBuilder.BuildSystemPrompt(timeManager, lastAssistantLetter);
+            string systemPrompt = letterPromptBuilder.BuildSystemPrompt(timeManager, lastAssistantLetter);
             string userPrompt = letterPromptBuilder.BuildUserTurnPrompt(timeManager, body);
 
-            StringBuilder stream = new StringBuilder();
-            string lastStreamUpdate = "";
             try
             {
                 if (statusLabel != null) statusLabel.text = "Receiving reply...";
 
-                await llmAgent.Chat(
-                    userPrompt,
-                    update =>
-                    {
-                        if (string.IsNullOrEmpty(update)) return;
-
-                        // Some backends stream token-by-token while others resend the full accumulated text.
-                        if (!string.IsNullOrEmpty(lastStreamUpdate) && update.StartsWith(lastStreamUpdate, StringComparison.Ordinal))
-                        {
-                            stream.Clear();
-                            stream.Append(update);
-                        }
-                        else
-                        {
-                            stream.Append(update);
-                        }
-
-                        lastStreamUpdate = update;
-                    }
-                );
-
-                lastAssistantLetter = stream.ToString().Trim();
+                string assistantReply = await activeModelClient.GenerateReply(systemPrompt, userPrompt, _ => { });
+                lastAssistantLetter = assistantReply?.Trim() ?? "";
                 AddHistoryEntry("Akeley", $"{timeManager.FormatDate(replyDate)}\n\n{lastAssistantLetter}");
                 storyEventLedger.RecordGeneratedLetter(replyDate, lastAssistantLetter);
                 timeManager.AdvanceTurn();
@@ -257,6 +292,42 @@ namespace Whisperer
                 sendButton?.SetEnabled(true);
             }
         }
+
+        LetterModelClient ResolveModelClient()
+        {
+            if (modelClient != null) return modelClient;
+
+            if (llmAgent != null)
+            {
+                LlmAgentLetterModelClient adapter = gameObject.GetComponent<LlmAgentLetterModelClient>();
+                if (adapter == null)
+                {
+                    adapter = gameObject.AddComponent<LlmAgentLetterModelClient>();
+                }
+
+                adapter.llmAgent = llmAgent;
+                modelClient = adapter;
+            }
+
+            return modelClient;
+        }
+
+        public Task SendTurnForTests(string letterBody)
+        {
+            return SendTurnInternal(letterBody);
+        }
+
+        public int HistoryEntryCountForTests => historyView?.childCount ?? 0;
+
+        public string GetHistoryEntryTextForTests(int index)
+        {
+            if (historyView == null) return "";
+            if (index < 0 || index >= historyView.childCount) return "";
+            if (historyView[index] is Label label) return label.text;
+            return "";
+        }
+
+        public string StatusTextForTests => statusLabel?.text ?? "";
 
         string ComposePlayerLetter(string body, DateTime sendDate)
         {

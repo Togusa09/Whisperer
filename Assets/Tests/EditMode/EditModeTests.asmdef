@@ -1,0 +1,13 @@
+{
+    "name": "Tests",
+    "references": [
+        "Whisperer.Core",
+        "Whisperer.Prompting"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ]
+}

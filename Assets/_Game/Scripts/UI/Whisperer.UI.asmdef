@@ -1,0 +1,8 @@
+{
+    "name": "Whisperer.UI",
+    "references": [
+        "Whisperer.Core",
+        "Whisperer.Prompting",
+        "undream.llmunity.Runtime"
+    ]
+}

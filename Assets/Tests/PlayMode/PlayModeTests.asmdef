@@ -1,0 +1,11 @@
+{
+    "name": "PlayModeTests",
+    "references": [
+        "Whisperer.Core",
+        "Whisperer.Prompting",
+        "Whisperer.UI"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

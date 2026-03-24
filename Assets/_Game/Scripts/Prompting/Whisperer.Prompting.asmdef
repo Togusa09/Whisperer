@@ -1,0 +1,6 @@
+{
+    "name": "Whisperer.Prompting",
+    "references": [
+        "Whisperer.Core"
+    ]
+}
