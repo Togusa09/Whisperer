@@ -212,19 +212,34 @@ namespace Whisperer
             string userPrompt = letterPromptBuilder.BuildUserTurnPrompt(timeManager, body);
 
             StringBuilder stream = new StringBuilder();
-            Label liveLabel = AddHistoryEntry("Akeley", "...");
+            string lastStreamUpdate = "";
             try
             {
+                if (statusLabel != null) statusLabel.text = "Receiving reply...";
+
                 await llmAgent.Chat(
                     userPrompt,
-                    token =>
+                    update =>
                     {
-                        stream.Append(token);
-                        liveLabel.text = $"Akeley ({timeManager.FormatDate(replyDate)}):\n\n{stream}";
+                        if (string.IsNullOrEmpty(update)) return;
+
+                        // Some backends stream token-by-token while others resend the full accumulated text.
+                        if (!string.IsNullOrEmpty(lastStreamUpdate) && update.StartsWith(lastStreamUpdate, StringComparison.Ordinal))
+                        {
+                            stream.Clear();
+                            stream.Append(update);
+                        }
+                        else
+                        {
+                            stream.Append(update);
+                        }
+
+                        lastStreamUpdate = update;
                     }
                 );
 
                 lastAssistantLetter = stream.ToString().Trim();
+                AddHistoryEntry("Akeley", $"{timeManager.FormatDate(replyDate)}\n\n{lastAssistantLetter}");
                 storyEventLedger.RecordGeneratedLetter(replyDate, lastAssistantLetter);
                 timeManager.AdvanceTurn();
 

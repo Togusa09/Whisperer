@@ -27,10 +27,17 @@ Goal: Add contradiction checks and creator-facing debugging utilities.
 
 ## P0
 
+Status Summary:
+- 1) Time Manager service: Completed
+- 2) Letter composition UI: Completed
+- 3) Prompt assembly pipeline: Completed
+- 4) Story event ledger: Completed
+
 ### 1) Time Manager service
 Priority: P0
 Effort: M
 Dependencies: none
+Status: Completed
 Description:
 - Add a central time service for turn/date progression.
 - Track player-send date and LLM-reply date (mid-month).
@@ -38,12 +45,13 @@ Description:
 Acceptance Criteria:
 - Sending a letter increments turn and advances date by one month.
 - Reply date is always computed as mid-month from send month.
-- Date state persists through save/load.
+- Date state is exposed cleanly so a later save/load system can persist and restore it.
 
 ### 2) Letter composition UI (replace placeholder chat input)
 Priority: P0
 Effort: M
 Dependencies: 1
+Status: Completed
 Description:
 - Replace sample-like message UI with a letter template.
 - Prefill To, From, Date, and opening/closing sections.
@@ -57,6 +65,7 @@ Acceptance Criteria:
 Priority: P0
 Effort: M
 Dependencies: 1, 2
+Status: Completed
 Description:
 - Build runtime prompt from components:
   - role/persona
@@ -73,6 +82,7 @@ Acceptance Criteria:
 Priority: P0
 Effort: M
 Dependencies: 1, 3
+Status: Completed
 Description:
 - Record canonical events by date range.
 - Track generated events that occurred between letters.
@@ -88,6 +98,7 @@ Acceptance Criteria:
 Priority: P1
 Effort: M
 Dependencies: 4
+Status: Completed
 Description:
 - Define chunk metadata:
   - sourceType (canon/local/scholarly/in-universe)
@@ -184,8 +195,6 @@ A feature is done when:
 
 ## Immediate Next Tickets
 
-1. Implement Time Manager script and persistence model.
-2. Replace current input area with letter template UI prefab.
-3. Add prompt builder service with debug preview toggle.
-4. Create initial event ledger JSON and loader.
-5. Build minimal date-filtered retrieval over tagged chunks.
+1. Build retrieval pipeline v1 with date/source filters (P1 #6).
+2. Add in-universe source handling and confidence framing (P1 #7).
+3. Add letter archive and timeline browser UI (P1 #8).

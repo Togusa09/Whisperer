@@ -9,11 +9,22 @@ namespace Whisperer
         public StoryEventLedger storyEventLedger;
         [Range(1, 20)] public int maxLedgerEntries = 6;
 
+        [Header("Debug")]
+        public bool debugLogPrompts;
+        [TextArea(8, 20)]
+        [SerializeField] string lastSystemPrompt = "";
+        [TextArea(6, 16)]
+        [SerializeField] string lastUserPrompt = "";
+
+        public string LastSystemPrompt => lastSystemPrompt;
+        public string LastUserPrompt => lastUserPrompt;
+
         public string BuildSystemPrompt(GameTimeManager timeManager, string previousAssistantLetter)
         {
             if (timeManager == null)
             {
-                return "You are Henry W. Akeley writing period letters to Albert N. Wilmarth.";
+                lastSystemPrompt = "You are Henry W. Akeley writing period letters to Albert N. Wilmarth.";
+                return lastSystemPrompt;
             }
 
             DateTime sendDate = timeManager.GetSendDate();
@@ -57,12 +68,23 @@ namespace Whisperer
             builder.AppendLine("Response format:");
             builder.AppendLine("- Return only the letter text from Henry W. Akeley.");
             builder.AppendLine("- Include concrete developments since your previous letter.");
-            return builder.ToString().Trim();
+            lastSystemPrompt = builder.ToString().Trim();
+
+            if (debugLogPrompts)
+            {
+                Debug.Log($"[Whisperer] System prompt built:\n{lastSystemPrompt}");
+            }
+
+            return lastSystemPrompt;
         }
 
         public string BuildUserTurnPrompt(GameTimeManager timeManager, string playerBody)
         {
-            if (timeManager == null) return playerBody;
+            if (timeManager == null)
+            {
+                lastUserPrompt = playerBody;
+                return lastUserPrompt;
+            }
 
             DateTime sendDate = timeManager.GetSendDate();
 
@@ -71,7 +93,14 @@ namespace Whisperer
             builder.AppendLine(playerBody.Trim());
             builder.AppendLine();
             builder.AppendLine("Reply as Henry W. Akeley in letter form.");
-            return builder.ToString().Trim();
+            lastUserPrompt = builder.ToString().Trim();
+
+            if (debugLogPrompts)
+            {
+                Debug.Log($"[Whisperer] User prompt built:\n{lastUserPrompt}");
+            }
+
+            return lastUserPrompt;
         }
     }
 }

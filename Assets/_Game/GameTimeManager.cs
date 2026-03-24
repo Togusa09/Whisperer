@@ -35,6 +35,11 @@ namespace Whisperer
             currentTurn += 1;
         }
 
+        public void ResetTurnState()
+        {
+            currentTurn = 0;
+        }
+
         public bool IsWithinKnowledgeCutoff(DateTime date)
         {
             return date.Year <= knowledgeCutoffYear;

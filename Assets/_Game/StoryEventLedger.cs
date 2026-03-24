@@ -12,6 +12,7 @@ namespace Whisperer
         public string title;
         public string description;
         public string sourceType;
+        public List<string> tags = new List<string>();
         public int validFromYear;
         public int validFromMonth;
         public int validFromDay;
@@ -31,6 +32,26 @@ namespace Whisperer
             DateTime validTo = new DateTime(validToYear, validToMonth, validToDay);
             return date <= validTo;
         }
+
+        public StoryEventEntry Clone()
+        {
+            return new StoryEventEntry
+            {
+                id = id,
+                title = title,
+                description = description,
+                sourceType = sourceType,
+                tags = tags != null ? new List<string>(tags) : new List<string>(),
+                validFromYear = validFromYear,
+                validFromMonth = validFromMonth,
+                validFromDay = validFromDay,
+                hasEndDate = hasEndDate,
+                validToYear = validToYear,
+                validToMonth = validToMonth,
+                validToDay = validToDay,
+                reliability = reliability
+            };
+        }
     }
 
     [Serializable]
@@ -44,8 +65,15 @@ namespace Whisperer
         [Header("Seed data")]
         public TextAsset seedJson;
 
+        [Header("Validation")]
+        public bool debugLogValidation;
+        [TextArea(4, 16)]
+        [SerializeField] private string lastValidationReport = "";
+
         [SerializeField] private List<StoryEventEntry> entries = new List<StoryEventEntry>();
         private bool loaded;
+
+        public string LastValidationReport => lastValidationReport;
 
         public void EnsureLoaded()
         {
@@ -56,7 +84,19 @@ namespace Whisperer
 
             StoryEventLedgerFile parsed = JsonUtility.FromJson<StoryEventLedgerFile>(seedJson.text);
             if (parsed?.entries == null) return;
-            entries = parsed.entries;
+
+            List<string> validationMessages = new List<string>();
+            entries = StoryEventMetadataValidator.NormalizeEntries(parsed.entries, validationMessages);
+            lastValidationReport = StoryEventMetadataValidator.BuildSummary(seedJson.name, parsed.entries.Count, entries.Count, validationMessages);
+
+            if (validationMessages.Count > 0)
+            {
+                Debug.LogWarning($"[Whisperer] {lastValidationReport}");
+            }
+            else if (debugLogValidation)
+            {
+                Debug.Log($"[Whisperer] {lastValidationReport}");
+            }
         }
 
         public List<StoryEventEntry> GetEventsForDate(DateTime date, int maxEntries = 6)
@@ -102,18 +142,30 @@ namespace Whisperer
             string snippet = content.Trim();
             if (snippet.Length > 500) snippet = snippet.Substring(0, 500);
 
-            entries.Add(new StoryEventEntry
+            StoryEventEntry generatedEntry = new StoryEventEntry
             {
                 id = $"generated-{DateTime.UtcNow.Ticks}",
                 title = $"Generated reply for {replyDate:yyyy-MM}",
                 description = snippet,
-                sourceType = "generated-letter",
+                sourceType = StoryEventMetadataValidator.SourceGeneratedLetter,
+                tags = new List<string> { "generated", "letter", "turn-history" },
                 validFromYear = replyDate.Year,
                 validFromMonth = replyDate.Month,
                 validFromDay = replyDate.Day,
                 hasEndDate = false,
                 reliability = 80
-            });
+            };
+
+            List<string> validationMessages = new List<string>();
+            if (StoryEventMetadataValidator.TryNormalize(generatedEntry, entries.Count, validationMessages, out StoryEventEntry normalizedEntry))
+            {
+                entries.Add(normalizedEntry);
+            }
+
+            if (validationMessages.Count > 0)
+            {
+                Debug.LogWarning($"[Whisperer] {StoryEventMetadataValidator.BuildSummary("generated letter entry", 1, normalizedEntry != null ? 1 : 0, validationMessages)}");
+            }
         }
     }
 }
