@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System;
 using System.Threading.Tasks;
 using UnityEngine.UI;
 using LLMUnity;
@@ -23,6 +24,10 @@ namespace Whisperer
         public float bubbleSpacing = 10f;
         public Sprite sprite;
         public Button stopButton;
+        [Header("P0 systems")]
+        public GameTimeManager timeManager;
+        public StoryEventLedger storyEventLedger;
+        public LetterPromptBuilder letterPromptBuilder;
 
         private InputBubble inputBubble;
         private List<Bubble> chatBubbles = new List<Bubble>();
@@ -30,6 +35,7 @@ namespace Whisperer
         private BubbleUI playerUI, aiUI;
         private bool warmUpDone = false;
         private int lastBubbleOutsideFOV = -1;
+        private string lastAssistantLetter = "";
 
         void Start()
         {
@@ -56,9 +62,29 @@ namespace Whisperer
             inputBubble.AddSubmitListener(OnInputFieldSubmit);
             inputBubble.AddValueChangedListener(OnValueChanged);
             inputBubble.setInteractable(false);
-            stopButton.gameObject.SetActive(true);
+            if (stopButton != null) stopButton.gameObject.SetActive(true);
+            ResolveP0Dependencies();
             ShowLoadedMessages();
             _ = llmAgent.Warmup(WarmUpCallback);
+        }
+
+        void ResolveP0Dependencies()
+        {
+            if (timeManager == null) timeManager = FindAnyObjectByType<GameTimeManager>();
+            if (storyEventLedger == null) storyEventLedger = FindAnyObjectByType<StoryEventLedger>();
+            if (letterPromptBuilder == null) letterPromptBuilder = FindAnyObjectByType<LetterPromptBuilder>();
+
+            if (timeManager == null) timeManager = gameObject.AddComponent<GameTimeManager>();
+            if (storyEventLedger == null) storyEventLedger = gameObject.AddComponent<StoryEventLedger>();
+            if (letterPromptBuilder == null) letterPromptBuilder = gameObject.AddComponent<LetterPromptBuilder>();
+
+            if (storyEventLedger.seedJson == null)
+            {
+                storyEventLedger.seedJson = Resources.Load<TextAsset>("Whisperer/story-events");
+            }
+            storyEventLedger.EnsureLoaded();
+
+            letterPromptBuilder.storyEventLedger = storyEventLedger;
         }
 
         Bubble AddBubble(string message, bool isPlayerMessage)
@@ -91,18 +117,65 @@ namespace Whisperer
             }
             blockInput = true;
             // replace vertical_tab
-            string message = inputBubble.GetText().Replace("\v", "\n");
+            string letterBody = inputBubble.GetText().Replace("\v", "\n").Trim();
 
-            AddBubble(message, true);
+            string playerLetter = ComposePlayerLetter(letterBody);
+            string modelMessage = letterBody;
+
+            if (letterPromptBuilder != null)
+            {
+                llmAgent.systemPrompt = letterPromptBuilder.BuildSystemPrompt(timeManager, lastAssistantLetter);
+                modelMessage = letterPromptBuilder.BuildUserTurnPrompt(timeManager, letterBody);
+            }
+
+            AddBubble(playerLetter, true);
             Bubble aiBubble = AddBubble("...", false);
-            Task chatTask = llmAgent.Chat(message, aiBubble.SetText, AllowInput);
+            string latestAssistantText = "";
+            Task chatTask = llmAgent.Chat(
+                modelMessage,
+                text =>
+                {
+                    latestAssistantText = text;
+                    aiBubble.SetText(text);
+                },
+                () => OnAssistantReplyCompleted(latestAssistantText)
+            );
             inputBubble.SetText("");
+        }
+
+        string ComposePlayerLetter(string letterBody)
+        {
+            if (timeManager == null)
+            {
+                return letterBody;
+            }
+
+            DateTime sendDate = timeManager.GetSendDate();
+            return
+                $"From: Albert N. Wilmarth\n" +
+                $"To: Henry W. Akeley\n" +
+                $"Date: {timeManager.FormatDate(sendDate)}\n\n" +
+                "My dear Mr. Akeley,\n\n" +
+                letterBody + "\n\n" +
+                "Yours very truly,\n" +
+                "Albert N. Wilmarth";
+        }
+
+        void OnAssistantReplyCompleted(string assistantText)
+        {
+            lastAssistantLetter = assistantText?.Trim() ?? "";
+            if (timeManager != null && storyEventLedger != null)
+            {
+                storyEventLedger.RecordGeneratedLetter(timeManager.GetReplyDate(), lastAssistantLetter);
+                timeManager.AdvanceTurn();
+            }
+            AllowInput();
         }
 
         public void WarmUpCallback()
         {
             warmUpDone = true;
-            inputBubble.SetPlaceHolderText("Message me");
+            inputBubble.SetPlaceHolderText("Write the body of your letter...");
             AllowInput();
         }
 

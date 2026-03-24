@@ -1,0 +1,46 @@
+{
+  "entries": [
+    {
+      "id": "canon-1927-flood",
+      "title": "Historic Vermont floods",
+      "description": "Floods of November 3, 1927 triggered reports of strange bodies in swollen rivers and renewed old hill folklore.",
+      "sourceType": "canon",
+      "validFromYear": 1927,
+      "validFromMonth": 11,
+      "validFromDay": 3,
+      "hasEndDate": false,
+      "validToYear": 0,
+      "validToMonth": 0,
+      "validToDay": 0,
+      "reliability": 100
+    },
+    {
+      "id": "canon-1928-correspondence",
+      "title": "Wilmarth-Akeley correspondence begins",
+      "description": "By spring 1928, Wilmarth's public debate draws Akeley's letters and private exchange about Vermont hill phenomena.",
+      "sourceType": "canon",
+      "validFromYear": 1928,
+      "validFromMonth": 5,
+      "validFromDay": 1,
+      "hasEndDate": false,
+      "validToYear": 0,
+      "validToMonth": 0,
+      "validToDay": 0,
+      "reliability": 100
+    },
+    {
+      "id": "local-townshend",
+      "title": "Townshend and Brattleboro geography",
+      "description": "Dark Mountain, Round Hill, and surrounding roads are remote, wooded, and difficult to monitor at night.",
+      "sourceType": "local-context",
+      "validFromYear": 1900,
+      "validFromMonth": 1,
+      "validFromDay": 1,
+      "hasEndDate": false,
+      "validToYear": 0,
+      "validToMonth": 0,
+      "validToDay": 0,
+      "reliability": 85
+    }
+  ]
+}
