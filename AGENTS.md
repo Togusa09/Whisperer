@@ -7,6 +7,7 @@
 - Do not edit third-party package source or files under `Assets/_Reference/LLMUnitySamples/**` unless the user explicitly asks for a change there.
 - Implement project changes in first-party code paths (for example `Assets/_Game/`) whenever possible.
 - If a requested feature appears to require changing vendor code, ask for explicit confirmation before editing it.
+- Treat `.github/skills/**` as Unity MCP generated artifacts; prefer regeneration over large manual rewrites.
 
 ## Narrative behavior policy for AI assistants
 

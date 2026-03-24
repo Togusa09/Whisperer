@@ -1,5 +1,13 @@
 # Project Setup Notes
 
+## Unity MCP
+
+Unity MCP is installed via UPM (`com.ivanmurzak.unity.mcp`).
+
+For maintenance conventions and upgrade workflow, see:
+
+- `docs/unity-mcp.md`
+
 ## LLMUnity Package Source
 
 LLMUnity is installed via Unity Package Manager from GitHub:
