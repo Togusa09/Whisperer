@@ -37,6 +37,7 @@
                     <ui:ScrollView name="ArchiveDetailView" class="archive-detail-view" mode="Vertical">
                         <ui:Label name="ArchiveDetailLabel" text="No turns recorded yet." class="archive-detail-label" />
                     </ui:ScrollView>
+                    <ui:Button name="ArchiveOpenButton" text="Lay Selected Letter on Desk" class="archive-desk-button" />
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
@@ -69,9 +70,9 @@
 
         <ui:VisualElement name="LetterPopupOverlay" class="letter-popup-overlay" style="display: none;">
             <ui:VisualElement name="LetterPopupPanel" class="letter-popup-panel">
-                <ui:VisualElement name="PopupHeader" class="popup-header">
+                <ui:VisualElement name="PopupHeader" class="popup-header desk-drag-handle">
                     <ui:Label name="PopupTitle" text="Letter from Akeley" class="popup-title" />
-                    <ui:Button name="PopupCloseButton" text="✕" class="popup-close-button" />
+                    <ui:Button name="PopupCloseButton" text="Return to File" class="popup-close-button" />
                 </ui:VisualElement>
                 <ui:ScrollView name="PopupContentView" class="popup-content-view" mode="Vertical">
                     <ui:Label name="PopupLetterContent" text="Letter content..." class="popup-letter-content" />

@@ -135,8 +135,11 @@ namespace Whisperer
         Button clearContextButton;
         Button openDiagnosticsButton;
         Button diagnosticsCloseButton;
+        Button archiveOpenButton;
         VisualElement diagnosticsOverlay;
         VisualElement letterPopupOverlay;
+        VisualElement letterPopupPanel;
+        Label popupTitle;
         Label popupLetterContent;
         Button popupCloseButton;
 
@@ -162,6 +165,9 @@ namespace Whisperer
         bool startupWarmupRequested;
         string lastWarmupStatus = "Not started.";
         ComposerSectionState composerState = ComposerSectionState.Compose;
+        TurnArchiveRecord selectedArchiveRecord;
+        TurnArchiveRecord openDeskRecord;
+        readonly Dictionary<TurnArchiveRecord, Vector2> deskLetterPositions = new Dictionary<TurnArchiveRecord, Vector2>();
 
         void Awake()
         {
@@ -279,8 +285,11 @@ namespace Whisperer
             clearContextButton = root.Q<Button>("ClearContextButton");
             openDiagnosticsButton = root.Q<Button>("OpenDiagnosticsButton");
             diagnosticsCloseButton = root.Q<Button>("DiagnosticsCloseButton");
+            archiveOpenButton = root.Q<Button>("ArchiveOpenButton");
             diagnosticsOverlay = root.Q<VisualElement>("DiagnosticsOverlay");
             letterPopupOverlay = root.Q<VisualElement>("LetterPopupOverlay");
+            letterPopupPanel = root.Q<VisualElement>("LetterPopupPanel");
+            popupTitle = root.Q<Label>("PopupTitle");
             popupLetterContent = root.Q<Label>("PopupLetterContent");
             popupCloseButton = root.Q<Button>("PopupCloseButton");
 
@@ -298,6 +307,11 @@ namespace Whisperer
             if (popupCloseButton != null)
             {
                 popupCloseButton.clicked += CloseLetterPopup;
+            }
+
+            if (archiveOpenButton != null)
+            {
+                archiveOpenButton.clicked += OpenSelectedArchiveLetterOnDesk;
             }
 
             if (composerNotificationButton != null)
@@ -349,6 +363,7 @@ namespace Whisperer
             SetComposerSectionState(ComposerSectionState.Compose);
             UpdateControlStates();
             uiBuilt = true;
+            ConfigureDeskLetterSurface(root);
             InitializeWithSeedCorrespondence();
             RefreshArchiveUi();
             RefreshDiagnostics(true);
@@ -863,9 +878,20 @@ namespace Whisperer
 
         public string StatusTextForTests => statusLabel?.text ?? "";
 
+        public bool SendButtonEnabledForTests => sendButton?.enabledSelf ?? false;
+
         public int ArchiveTurnCountForTests => turnArchive.Count;
 
         public string ArchiveDetailTextForTests => archiveDetailLabel?.text ?? "";
+
+        public bool IsDeskLetterVisibleForTests => letterPopupOverlay != null && letterPopupOverlay.resolvedStyle.display != DisplayStyle.None;
+
+        public void ReturnDeskLetterToFileForTests()
+        {
+            CloseLetterPopup();
+        }
+
+        public string DeskLetterTitleForTests => popupTitle?.text ?? "";
 
         public bool DiagnosticsIsPaused => llmPaused;
         public bool DiagnosticsIsWarmupInFlight => warmupInFlight;
@@ -915,19 +941,43 @@ namespace Whisperer
         void OnComposerNotificationButtonClicked()
         {
             if (composerState != ComposerSectionState.ReplyReady) return;
-            ShowLetterPopup();
+            OpenDeskLetter(GetLatestReceivedRecord());
         }
 
-        void ShowLetterPopup()
+        void OpenSelectedArchiveLetterOnDesk()
         {
-            if (letterPopupOverlay == null) return;
+            OpenDeskLetter(selectedArchiveRecord);
+        }
+
+        void OpenDeskLetter(TurnArchiveRecord record)
+        {
+            if (record == null || letterPopupOverlay == null || popupLetterContent == null) return;
+
+            openDeskRecord = record;
+            if (popupTitle != null)
+            {
+                string sender = string.IsNullOrWhiteSpace(record.senderName) ? "Akeley" : record.senderName;
+                popupTitle.text = $"Letter from {sender}\n{timeManager.FormatDate(record.replyDate)}";
+            }
+
+            popupLetterContent.text = record.assistantLetter;
             letterPopupOverlay.style.display = DisplayStyle.Flex;
+
+            if (TryGetDeskLetterPosition(record, out Vector2 savedPosition))
+            {
+                ApplyDeskLetterPosition(savedPosition);
+            }
+            else
+            {
+                CenterDeskLetterNextLayoutPass();
+            }
         }
 
         void CloseLetterPopup()
         {
             if (letterPopupOverlay == null) return;
             letterPopupOverlay.style.display = DisplayStyle.None;
+            openDeskRecord = null;
             if (composerState == ComposerSectionState.ReplyReady)
             {
                 SetComposerSectionState(ComposerSectionState.Compose);
@@ -991,6 +1041,8 @@ namespace Whisperer
                     ? "Open Akeley's Reply"
                     : "Awaiting Reply...";
             }
+
+            UpdateControlStates();
         }
 
         void InitializeWithSeedCorrespondence()
@@ -1083,7 +1135,9 @@ namespace Whisperer
             archiveListView.Clear();
             if (turnArchive.Count == 0)
             {
+                selectedArchiveRecord = null;
                 archiveDetailLabel.text = "No turns recorded yet.";
+                UpdateArchiveDeskButton();
                 return;
             }
 
@@ -1132,6 +1186,7 @@ namespace Whisperer
 
         void ShowArchiveTurnRecord(TurnArchiveRecord record)
         {
+            selectedArchiveRecord = record;
             var sb = new StringBuilder();
             if (!string.IsNullOrWhiteSpace(record.playerLetter))
             {
@@ -1147,6 +1202,80 @@ namespace Whisperer
             sb.AppendLine($"{sender}:");
             sb.Append(record.assistantLetter);
             archiveDetailLabel.text = sb.ToString();
+            UpdateArchiveDeskButton();
+        }
+
+        void ConfigureDeskLetterSurface(VisualElement root)
+        {
+            if (letterPopupPanel == null || root == null) return;
+
+            VisualElement popupHeader = root.Q<VisualElement>("PopupHeader");
+            if (popupHeader == null) return;
+
+            letterPopupPanel.AddManipulator(new DeskLetterDragManipulator(popupHeader, position =>
+            {
+                if (openDeskRecord == null) return;
+                deskLetterPositions[openDeskRecord] = position;
+            }));
+        }
+
+        TurnArchiveRecord GetLatestReceivedRecord()
+        {
+            if (turnArchive.Count == 0) return null;
+            return turnArchive.OrderBy(record => record.replyDate).LastOrDefault();
+        }
+
+        void UpdateArchiveDeskButton()
+        {
+            if (archiveOpenButton == null) return;
+
+            bool hasSelection = selectedArchiveRecord != null;
+            archiveOpenButton.SetEnabled(hasSelection);
+            if (!hasSelection)
+            {
+                archiveOpenButton.text = "Lay Selected Letter on Desk";
+                return;
+            }
+
+            string sender = string.IsNullOrWhiteSpace(selectedArchiveRecord.senderName)
+                ? "Selected Letter"
+                : selectedArchiveRecord.senderName;
+            archiveOpenButton.text = $"Lay {sender}'s Letter on Desk";
+        }
+
+        bool TryGetDeskLetterPosition(TurnArchiveRecord record, out Vector2 position)
+        {
+            if (record != null && deskLetterPositions.TryGetValue(record, out position))
+            {
+                return true;
+            }
+
+            position = default;
+            return false;
+        }
+
+        void ApplyDeskLetterPosition(Vector2 position)
+        {
+            if (letterPopupPanel == null) return;
+            letterPopupPanel.style.left = position.x;
+            letterPopupPanel.style.top = position.y;
+            letterPopupPanel.style.right = StyleKeyword.Auto;
+            letterPopupPanel.style.bottom = StyleKeyword.Auto;
+        }
+
+        void CenterDeskLetterNextLayoutPass()
+        {
+            if (letterPopupPanel == null || letterPopupOverlay == null) return;
+
+            letterPopupPanel.schedule.Execute(() =>
+            {
+                if (letterPopupOverlay == null || letterPopupPanel == null || openDeskRecord == null) return;
+
+                float availableWidth = Mathf.Max(0f, letterPopupOverlay.contentRect.width - letterPopupPanel.resolvedStyle.width);
+                float availableHeight = Mathf.Max(0f, letterPopupOverlay.contentRect.height - letterPopupPanel.resolvedStyle.height);
+                Vector2 centeredPosition = new Vector2(availableWidth * 0.5f, availableHeight * 0.5f);
+                ApplyDeskLetterPosition(centeredPosition);
+            }).ExecuteLater(0);
         }
 
         string ComposePlayerLetter(string body, DateTime sendDate)

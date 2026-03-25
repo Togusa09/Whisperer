@@ -56,6 +56,34 @@ public class LetterUiTurnFlowPlayModeTests
         StringAssert.Contains("hills are uneasy", archiveDetail.ToLowerInvariant());
     }
 
+    [UnityTest]
+    public IEnumerator ClosingReply_ReEnablesSendButton()
+    {
+        SceneManager.LoadScene(ScenePath, new LoadSceneParameters(LoadSceneMode.Single));
+        yield return null;
+
+        LetterUiController controller = UnityEngine.Object.FindAnyObjectByType<LetterUiController>();
+        Assert.NotNull(controller, "LetterUiController missing from scene.");
+
+        FakeLetterModelClient fake = controller.gameObject.AddComponent<FakeLetterModelClient>();
+        controller.modelClient = fake;
+
+        Task sendTask = controller.SendTurnForTests("I write to ask if the disturbances have continued.");
+        yield return null;
+
+        yield return WaitForTask(sendTask, 2f);
+
+        Assert.IsTrue(controller.IsDeskLetterVisibleForTests, "Reply letter should be visible after send completes.");
+        Assert.IsFalse(controller.SendButtonEnabledForTests, "Send button should remain disabled while reply is ready and open.");
+
+        controller.ReturnDeskLetterToFileForTests();
+        yield return null;
+
+        Assert.IsFalse(controller.IsDeskLetterVisibleForTests, "Reply letter should be hidden after returning it to file.");
+        Assert.IsTrue(controller.SendButtonEnabledForTests, "Send button should be re-enabled once the composer returns to compose state.");
+        Assert.AreEqual("Ready", controller.StatusTextForTests);
+    }
+
     static IEnumerator WaitForTask(Task task, float timeoutSeconds)
     {
         float started = Time.realtimeSinceStartup;

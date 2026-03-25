@@ -156,6 +156,26 @@
     border-bottom-right-radius: 12px;
 }
 
+.archive-desk-button {
+    margin-top: 10px;
+    height: 36px;
+    background-color: rgba(99, 79, 53, 0.18);
+    color: rgb(66, 50, 30);
+    border-top-left-radius: 18px;
+    border-top-right-radius: 18px;
+    border-bottom-left-radius: 18px;
+    border-bottom-right-radius: 18px;
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    border-left-width: 0;
+    -unity-font-style: bold;
+}
+
+.archive-desk-button:disabled {
+    opacity: 0.45;
+}
+
 .section-title {
     font-size: 18px;
     -unity-font-style: bold;
@@ -528,6 +548,7 @@
 }
 
 .letter-popup-panel {
+    position: absolute;
     width: 600px;
     height: 70%;
     max-height: 700px;
@@ -549,8 +570,8 @@
 
 .popup-header {
     flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
+    align-items: flex-start;
+    justify-content: flex-start;
     padding-top: 16px;
     padding-right: 16px;
     padding-bottom: 10px;
@@ -559,16 +580,28 @@
     border-bottom-color: rgba(136, 103, 63, 0.3);
 }
 
+.desk-drag-handle {
+    cursor: move;
+}
+
 .popup-title {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin-right: 12px;
     font-size: 18px;
     -unity-font-style: bold;
     color: rgb(63, 46, 25);
+    white-space: normal;
 }
 
 .popup-close-button {
-    width: 32px;
+    min-width: 128px;
+    flex-shrink: 0;
+    align-self: flex-start;
     height: 32px;
-    font-size: 16px;
+    padding-left: 12px;
+    padding-right: 12px;
+    font-size: 12px;
     background-color: rgba(200, 170, 130, 0.3);
     color: rgb(63, 46, 25);
     border-top-left-radius: 6px;
