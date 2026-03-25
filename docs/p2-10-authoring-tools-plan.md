@@ -19,12 +19,14 @@ Enable non-programmer workflows for adding and maintaining chronology RAG conten
 - Add metadata help text for source-type semantics.
 
 ### M2: Validation + Save Flow
+- Status: implemented in `WhispererContentPackAuthoringWindow`.
 - Integrate `StoryEventMetadataValidator.TryNormalize` on each draft entry.
 - Display inline errors/warnings before save.
 - Save to `Assets/_Game/Resources/Whisperer/story-events.json` with deterministic ordering.
 - Restrict `sourceType` to a dropdown of supported values so invalid types cannot be entered manually.
 
 ### M3: Import/Export Workflow
+- Status: implemented in `WhispererContentPackAuthoringWindow`.
 - Import JSON file and show diff preview against current ledger.
 - Optional CSV import template mapped to `StoryEventEntry`.
 - Export current ledger to timestamped backup.
