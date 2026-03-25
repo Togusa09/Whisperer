@@ -44,6 +44,7 @@ namespace Whisperer.Editor
         void OnGUI()
         {
             DrawToolbar();
+            DrawAuthoringDiagnostics();
 
             if (!Application.isPlaying)
             {
@@ -62,6 +63,44 @@ namespace Whisperer.Editor
             DrawSummary(controller);
             DrawPrompting(controller);
             DrawConsistency(controller);
+        }
+
+        void DrawAuthoringDiagnostics()
+        {
+            EditorGUILayout.Space(8);
+            EditorGUILayout.LabelField("Authoring Diagnostics", EditorStyles.boldLabel);
+
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Open Authoring Window", GUILayout.Height(24)))
+            {
+                WhispererContentPackAuthoringWindow.Open();
+            }
+
+            if (GUILayout.Button("Open Content Source", GUILayout.Height(24)))
+            {
+                OpenAuthoringContentSource();
+            }
+
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.LabelField("Content Source", WhispererContentPackAuthoringWindow.DiagnosticsLastAuthoringSource);
+            DrawTextArea("Last Authoring Summary", WhispererContentPackAuthoringWindow.DiagnosticsLastAuthoringSummary);
+            DrawTextArea("Last Authoring Report", WhispererContentPackAuthoringWindow.DiagnosticsLastAuthoringReport);
+        }
+
+        static void OpenAuthoringContentSource()
+        {
+            string assetPath = WhispererContentPackAuthoringWindow.DiagnosticsContentAssetPath;
+            TextAsset asset = AssetDatabase.LoadAssetAtPath<TextAsset>(assetPath);
+            if (asset != null)
+            {
+                Selection.activeObject = asset;
+                AssetDatabase.OpenAsset(asset);
+                EditorGUIUtility.PingObject(asset);
+                return;
+            }
+
+            EditorUtility.DisplayDialog("Content Source Not Found", $"Could not locate '{assetPath}' in the AssetDatabase.", "OK");
         }
 
         void DrawToolbar()

@@ -166,7 +166,7 @@ Acceptance Criteria:
 Priority: P2
 Effort: M
 Dependencies: 5
-Status: Planned
+Status: Completed
 Description:
 - Build editor tooling for importing/tagging event and lore chunks.
 Acceptance Criteria:
@@ -334,9 +334,9 @@ A feature is done when:
 
 ## Immediate Next Tickets
 
-1. Implement consistency validator for contradiction detection and fallback generation (P2 #9).
-2. Build authoring workflow for content packs with validation (P2 #10).
-3. Extend weather-history intent parsing to support weekly and relative-range phrasing (P2 #21 optional).
+1. Extend weather-history intent parsing to support weekly and relative-range phrasing (P2 #21 optional).
+2. Continue improved correspondence UI work (P3 #12).
+3. Evaluate whether letter drag-and-drop interactions (P3 #13) or multi-draft workflow (P3 #14) is the better next UX slice.
 
 ## Future Enhancement Priorities (When Ready)
 

@@ -9,6 +9,9 @@ namespace Whisperer.Editor
     public class WhispererContentPackAuthoringWindow : EditorWindow
     {
         const string StoryEventsAssetPath = "Assets/_Game/Resources/Whisperer/story-events.json";
+        const string AuthoringSummarySessionKey = "Whisperer.AuthoringDiagnostics.Summary";
+        const string AuthoringReportSessionKey = "Whisperer.AuthoringDiagnostics.Report";
+        const string AuthoringSourceSessionKey = "Whisperer.AuthoringDiagnostics.Source";
         static readonly string[] SourceTypeOptions =
         {
             StoryEventMetadataValidator.SourceCanon,
@@ -35,7 +38,7 @@ namespace Whisperer.Editor
         ImportPreviewState importPreviewState;
 
         [MenuItem("Window/Whisperer/Content Pack Authoring")]
-        static void Open()
+        public static void Open()
         {
             WhispererContentPackAuthoringWindow window = GetWindow<WhispererContentPackAuthoringWindow>("Content Pack Authoring");
             window.minSize = new Vector2(900, 560);
@@ -46,6 +49,26 @@ namespace Whisperer.Editor
         {
             LoadFromDisk();
         }
+
+        public static string DiagnosticsContentAssetPath => StoryEventsAssetPath;
+
+        public static string DiagnosticsLastAuthoringSummary
+        {
+            get
+            {
+                WhispererContentPackAuthoringWindow window = FindOpenWindow();
+                if (window != null && window.draftValidationState != null)
+                {
+                    return window.draftValidationState.SummaryText;
+                }
+
+                return SessionState.GetString(AuthoringSummarySessionKey, "No authoring diagnostics recorded yet.");
+            }
+        }
+
+        public static string DiagnosticsLastAuthoringReport => SessionState.GetString(AuthoringReportSessionKey, "No authoring diagnostics recorded yet.");
+
+        public static string DiagnosticsLastAuthoringSource => SessionState.GetString(AuthoringSourceSessionKey, StoryEventsAssetPath);
 
         void OnGUI()
         {
@@ -229,6 +252,8 @@ namespace Whisperer.Editor
             {
                 EditorGUILayout.HelpBox(saveStatusMessage, saveStatusMessageType);
             }
+
+            PublishAuthoringDiagnostics(draftValidationState.SummaryText, draftValidationState.Report, StoryEventsAssetPath);
         }
 
         void DrawSourceTypeHelp()
@@ -465,6 +490,7 @@ namespace Whisperer.Editor
             {
                 saveStatusMessage = draftValidationState.Report;
                 saveStatusMessageType = MessageType.Error;
+                PublishAuthoringDiagnostics(draftValidationState.SummaryText, draftValidationState.Report, StoryEventsAssetPath);
                 return;
             }
 
@@ -496,6 +522,7 @@ namespace Whisperer.Editor
             saveStatusMessage = draftValidationState.Report;
             saveStatusMessageType = draftValidationState.WarningCount > 0 ? MessageType.Warning : MessageType.Info;
             draftValidationState = ValidateDraftEntries();
+            PublishAuthoringDiagnostics(saveStatusMessage, draftValidationState.Report, StoryEventsAssetPath);
         }
 
         void LoadFromDisk()
@@ -530,6 +557,8 @@ namespace Whisperer.Editor
             }
 
             loaded = true;
+            draftValidationState = ValidateDraftEntries();
+            PublishAuthoringDiagnostics(draftValidationState.SummaryText, draftValidationState.Report, StoryEventsAssetPath);
         }
 
         void BeginImportJson()
@@ -541,6 +570,10 @@ namespace Whisperer.Editor
             importPreviewState = BuildImportPreview(selectedPath);
             saveStatusMessage = importPreviewState != null && importPreviewState.HasErrors ? importPreviewState.Report : string.Empty;
             saveStatusMessageType = MessageType.Info;
+            if (importPreviewState != null)
+            {
+                PublishAuthoringDiagnostics(importPreviewState.SummaryText, importPreviewState.Report, selectedPath);
+            }
         }
 
         ImportPreviewState BuildImportPreview(string path)
@@ -686,6 +719,7 @@ namespace Whisperer.Editor
             draftValidationState = ValidateDraftEntries();
             saveStatusMessage = $"Applied import from '{Path.GetFileName(importPreviewState.SourcePath)}'. {importPreviewState.MergeSummaryText}";
             saveStatusMessageType = MessageType.Info;
+            PublishAuthoringDiagnostics(saveStatusMessage, importPreviewState.Report, importPreviewState.SourcePath);
         }
 
         void ExportBackup()
@@ -698,6 +732,7 @@ namespace Whisperer.Editor
             WriteEntriesToPath(selectedPath, workingEntries, sortEntries: true);
             saveStatusMessage = $"Exported backup to '{selectedPath}'.";
             saveStatusMessageType = MessageType.Info;
+            PublishAuthoringDiagnostics(saveStatusMessage, draftValidationState != null ? draftValidationState.Report : saveStatusMessage, selectedPath);
         }
 
         void ExportCsvTemplate()
@@ -715,6 +750,7 @@ namespace Whisperer.Editor
             File.WriteAllText(selectedPath, csv + Environment.NewLine);
             saveStatusMessage = $"Exported CSV template to '{selectedPath}'. Use pipe-separated tags in the tags column when preparing external content.";
             saveStatusMessageType = MessageType.Info;
+            PublishAuthoringDiagnostics(saveStatusMessage, saveStatusMessage, selectedPath);
         }
 
         void AddNewEntry()
@@ -953,6 +989,19 @@ namespace Whisperer.Editor
             string json = JsonUtility.ToJson(file, true);
             File.WriteAllText(absolutePath, json + Environment.NewLine);
             AssetDatabase.Refresh();
+        }
+
+        static WhispererContentPackAuthoringWindow FindOpenWindow()
+        {
+            WhispererContentPackAuthoringWindow[] windows = Resources.FindObjectsOfTypeAll<WhispererContentPackAuthoringWindow>();
+            return windows != null && windows.Length > 0 ? windows[0] : null;
+        }
+
+        static void PublishAuthoringDiagnostics(string summary, string report, string sourcePath)
+        {
+            SessionState.SetString(AuthoringSummarySessionKey, string.IsNullOrWhiteSpace(summary) ? "No authoring diagnostics recorded yet." : summary);
+            SessionState.SetString(AuthoringReportSessionKey, string.IsNullOrWhiteSpace(report) ? "No authoring diagnostics recorded yet." : report);
+            SessionState.SetString(AuthoringSourceSessionKey, string.IsNullOrWhiteSpace(sourcePath) ? StoryEventsAssetPath : sourcePath);
         }
 
         static int CompareEntriesForSave(StoryEventEntry left, StoryEventEntry right)

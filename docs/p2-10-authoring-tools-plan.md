@@ -32,6 +32,7 @@ Enable non-programmer workflows for adding and maintaining chronology RAG conten
 - Export current ledger to timestamped backup.
 
 ### M4: Diagnostics Integration
+- Status: implemented in `WhispererDiagnosticsWindow` and `WhispererContentPackAuthoringWindow`.
 - Hook into existing diagnostics to show last authoring validation summary.
 - Add one-click "Open content source" from diagnostics editor window.
 
