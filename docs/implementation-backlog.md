@@ -47,21 +47,6 @@ Acceptance Criteria:
 
 ## P3 - Enhanced UX and Presentation
 
-### 12) Improved correspondence UI
-Priority: P3
-Effort: S
-Dependencies: 8
-Status: In Progress
-Plan: [docs/implementation plan/p3-12-improved-correspondence-ui.md](docs/implementation%20plan/p3-12-improved-correspondence-ui.md)
-Description:
-- Restructure letter UI into three-column layout: Received Letter (left) | Composer (center) | Archive (right).
-- Received letter displayed in prominent, readable view.
-- Archive easily accessible for reference while drafting.
-Acceptance Criteria:
-- Player can read latest reply in large, clear view.
-- Archive browser easily accessible without interrupting draft flow.
-- UI responsive and balanced across three panels.
-
 ### 13) Letter drag-and-drop interactions
 Priority: P3
 Effort: S
@@ -174,7 +159,7 @@ Acceptance Criteria:
 
 ## Suggested Build Order
 
-1. 12 -> 13
+1. 13
 2. 30 (optional, after drag interactions)
 3. 14 -> 15 -> 17
 4. 16
@@ -193,8 +178,7 @@ A feature is done when:
 ## Immediate Next Tickets
 
 1. Extend weather-history intent parsing to support weekly and relative-range phrasing (P2 #21 optional).
-2. Continue improved correspondence UI work (P3 #12).
-3. Evaluate whether letter drag-and-drop interactions (P3 #13) or multi-draft workflow (P3 #14) is the better next UX slice.
+2. Implement letter drag-and-drop interactions (P3 #13) — #12 is now complete.
 
 ## P2 (Narrative & Model Tuning)
 

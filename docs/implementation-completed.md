@@ -153,3 +153,20 @@ Description:
 - Show: built prompt sections, retrieved chunks, and timing.
 Acceptance Criteria:
 - One-click per-turn trace shows why output was generated.
+
+## P3 Completed
+
+### 12) Improved correspondence UI
+Priority: P3
+Effort: S
+Dependencies: 8
+Status: Completed
+Description:
+- Two-column layout: Composer (left) | Archive (right).
+- Received letter shown in a modal popup dialog when reply arrives; reopenable via notification button.
+- Composer state machine drives InTransit / ReplyReady notification panel.
+Acceptance Criteria:
+- Player can read latest reply in large, clear dialog view.
+- Archive browser always accessible without interrupting draft flow.
+- Closing the popup transitions composer back to ready state.
+Note: Originally planned as a three-column layout; revised to dialog popup for improved usability.
