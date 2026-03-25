@@ -259,6 +259,32 @@ Acceptance Criteria:
 - Incoming letter animates through receive sequence.
 - Animations skip-able with button press or auto-complete after timeout.
 
+### 18) Akeley stability + trust model v2
+Priority: P2
+Effort: M
+Dependencies: 3, 4
+Description:
+- Replace MVP keyword heuristics with richer scoring from player intent and tone.
+- Track two hidden values per turn: Akeley Stability and Akeley Trust in Wilmarth.
+- Record meter deltas per turn for debugging and balancing.
+Acceptance Criteria:
+- Meter changes are influenced by player message intent, not only keyword overlap.
+- Designers can tune weights and thresholds without code changes.
+- Per-turn debug trace explains why each meter changed.
+
+### 19) Relationship-driven branching and consequences
+Priority: P2
+Effort: M
+Dependencies: 18, 8
+Description:
+- Use Stability/Trust thresholds to alter letter tone, disclosures, and risk events.
+- Unlock or block specific correspondence outcomes based on meter ranges.
+- Surface subtle in-world feedback so players can infer relationship state.
+Acceptance Criteria:
+- At least three distinct narrative states are reachable from meter combinations.
+- Branch outcomes are deterministic given timeline and meter state.
+- Archive/history view can show key relationship-state milestones.
+
 ### 18) Endgame: Invitation to Akeley's house
 Priority: P3
 Effort: L

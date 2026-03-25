@@ -12,6 +12,8 @@
                         <ui:Label name="ToLabel" text="To:" class="meta-line meta-primary" />
                         <ui:Label name="FromLabel" text="From:" class="meta-line" />
                         <ui:Label name="DateLabel" text="Date:" class="meta-line" />
+                        <ui:Label name="SanityLabel" text="Akeley Stability: 70/100" class="meta-line meta-small" />
+                        <ui:Label name="TrustLabel" text="Akeley Trust: 50/100" class="meta-line meta-small" />
                         <ui:Label name="ToAddressLabel" text="Recipient Address:" class="meta-line meta-small" />
                         <ui:Label name="FromAddressLabel" text="Sender Address:" class="meta-line meta-small" />
                     </ui:VisualElement>

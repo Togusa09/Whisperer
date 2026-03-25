@@ -29,11 +29,34 @@ namespace Whisperer
         [SerializeField] string lastRetrievalTrace = "";
         [TextArea(5, 14)]
         [SerializeField] string lastSourceFraming = "";
+        [Header("Relationship State")]
+        [Range(0, 100)] public int currentAkeleySanity = 70;
+        [Range(0, 100)] public int currentAkeleyTrust = 50;
 
         public string LastSystemPrompt => lastSystemPrompt;
         public string LastUserPrompt => lastUserPrompt;
         public string LastRetrievalTrace => lastRetrievalTrace;
         public string LastSourceFraming => lastSourceFraming;
+
+        public void SetRelationshipState(int sanity, int trust)
+        {
+            currentAkeleySanity = Mathf.Clamp(sanity, 0, 100);
+            currentAkeleyTrust = Mathf.Clamp(trust, 0, 100);
+        }
+
+        static string DescribeSanityState(int sanity)
+        {
+            if (sanity >= 75) return "steady";
+            if (sanity >= 45) return "strained";
+            return "fraying";
+        }
+
+        static string DescribeTrustState(int trust)
+        {
+            if (trust >= 75) return "confiding";
+            if (trust >= 45) return "cautious";
+            return "guarded";
+        }
 
         public string BuildSystemPrompt(GameTimeManager timeManager, string previousAssistantLetter)
         {
@@ -56,10 +79,35 @@ namespace Whisperer
             builder.AppendLine("- Do not reference future narrative events beyond the current timeline.");
             builder.AppendLine($"- Do not use real-world knowledge after {timeManager.knowledgeCutoffYear}.");
             builder.AppendLine("- You may speculate only using period-appropriate ideas available by 1930.");
+            builder.AppendLine("- Never mention being an AI, model, system prompt, safety policy, or generated text.");
+            builder.AppendLine("- Stay in-character as Akeley and write only in-world correspondence.");
             builder.AppendLine();
             builder.AppendLine("Current timeline:");
             builder.AppendLine($"- Player send date: {timeManager.FormatDate(sendDate)}");
             builder.AppendLine($"- Your reply context date: {timeManager.FormatDate(replyDate)}");
+            builder.AppendLine($"- Current turn index: {timeManager.CurrentTurn + 1}");
+            builder.AppendLine();
+            builder.AppendLine("Relationship state (MVP simulation):");
+            builder.AppendLine($"- Stability: {currentAkeleySanity}/100 ({DescribeSanityState(currentAkeleySanity)})");
+            builder.AppendLine($"- Trust in Wilmarth: {currentAkeleyTrust}/100 ({DescribeTrustState(currentAkeleyTrust)})");
+
+            builder.AppendLine();
+            builder.AppendLine("Character progression guidance:");
+            if (timeManager.CurrentTurn <= 1)
+            {
+                builder.AppendLine("- Voice: cautious rural scholar; polite, concrete, and uncertain.");
+                builder.AppendLine("- Emphasize observation over certainty.");
+            }
+            else if (timeManager.CurrentTurn <= 4)
+            {
+                builder.AppendLine("- Voice: mounting unease; longer, more urgent lines and sharper detail.");
+                builder.AppendLine("- Introduce recurring signs (tracks, odd sounds, missing evidence) without full explanation.");
+            }
+            else
+            {
+                builder.AppendLine("- Voice: occasionally too precise or faintly clinical, as if strain or mimicry is emerging.");
+                builder.AppendLine("- Keep plausible human letter tone; do not explicitly reveal non-human replacement unless context supports it.");
+            }
 
             if (!string.IsNullOrWhiteSpace(previousAssistantLetter))
             {
@@ -90,6 +138,8 @@ namespace Whisperer
             builder.AppendLine("Response format:");
             builder.AppendLine("- Return only the letter text from Henry W. Akeley.");
             builder.AppendLine("- Include concrete developments since your previous letter.");
+            builder.AppendLine("- Begin with a period salutation and end with a period-appropriate signature.");
+            builder.AppendLine("- Avoid out-of-character commentary or analysis.");
             lastSystemPrompt = builder.ToString().Trim();
 
             if (debugLogPrompts)

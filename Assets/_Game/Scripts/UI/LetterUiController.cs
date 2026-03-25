@@ -91,6 +91,8 @@ namespace Whisperer
         Label toLabel;
         Label fromLabel;
         Label dateLabel;
+        Label sanityLabel;
+        Label trustLabel;
         Label toAddressLabel;
         Label fromAddressLabel;
         TextField bodyField;
@@ -109,6 +111,8 @@ namespace Whisperer
         VisualTreeAsset layoutAsset;
         StyleSheet styleSheet;
         readonly List<TurnArchiveRecord> turnArchive = new List<TurnArchiveRecord>();
+        int akeleySanity = 70;
+        int akeleyTrust = 50;
 
         void Awake()
         {
@@ -184,6 +188,8 @@ namespace Whisperer
             toLabel = root.Q<Label>("ToLabel");
             fromLabel = root.Q<Label>("FromLabel");
             dateLabel = root.Q<Label>("DateLabel");
+            sanityLabel = root.Q<Label>("SanityLabel");
+            trustLabel = root.Q<Label>("TrustLabel");
             toAddressLabel = root.Q<Label>("ToAddressLabel");
             fromAddressLabel = root.Q<Label>("FromAddressLabel");
             bodyField = root.Q<TextField>("BodyField");
@@ -252,8 +258,64 @@ namespace Whisperer
             if (toLabel != null) toLabel.text = $"To: {toName}";
             if (fromLabel != null) fromLabel.text = $"From: {fromName}";
             if (dateLabel != null) dateLabel.text = $"Date: {timeManager.FormatDate(sendDate)}";
+            if (sanityLabel != null) sanityLabel.text = $"Akeley Stability: {akeleySanity}/100 ({DescribeSanityState()})";
+            if (trustLabel != null) trustLabel.text = $"Akeley Trust: {akeleyTrust}/100 ({DescribeTrustState()})";
             if (toAddressLabel != null) toAddressLabel.text = $"Recipient Address: {toAddress}";
             if (fromAddressLabel != null) fromAddressLabel.text = $"Sender Address: {fromAddress}";
+        }
+
+        string DescribeSanityState()
+        {
+            if (akeleySanity >= 75) return "Steady";
+            if (akeleySanity >= 45) return "Strained";
+            return "Fraying";
+        }
+
+        string DescribeTrustState()
+        {
+            if (akeleyTrust >= 75) return "Confiding";
+            if (akeleyTrust >= 45) return "Cautious";
+            return "Guarded";
+        }
+
+        void ApplyMvpRelationshipEffects(string playerBody)
+        {
+            string text = (playerBody ?? "").ToLowerInvariant();
+            int sanityDelta = -1;
+            int trustDelta = 0;
+
+            string[] supportive = { "believe", "trust", "help", "concern", "care", "friend", "support", "safely", "protect" };
+            string[] dismissive = { "nonsense", "absurd", "delusion", "insane", "madness", "hysteria", "fabricat", "liar" };
+            string[] practical = { "evidence", "detail", "record", "note", "witness", "investigate", "authorit", "sheriff", "photograph", "sample" };
+
+            int supportiveHits = CountKeywordHits(text, supportive);
+            int dismissiveHits = CountKeywordHits(text, dismissive);
+            int practicalHits = CountKeywordHits(text, practical);
+
+            trustDelta += Mathf.Min(6, supportiveHits * 2);
+            sanityDelta += Mathf.Min(4, supportiveHits);
+
+            trustDelta -= Mathf.Min(8, dismissiveHits * 3);
+            sanityDelta -= Mathf.Min(6, dismissiveHits * 2);
+
+            trustDelta += Mathf.Min(6, practicalHits * 2);
+            sanityDelta += Mathf.Min(3, practicalHits);
+
+            if (text.Length > 280) trustDelta += 1;
+            if (text.Length < 80) trustDelta -= 1;
+
+            akeleySanity = Mathf.Clamp(akeleySanity + sanityDelta, 0, 100);
+            akeleyTrust = Mathf.Clamp(akeleyTrust + trustDelta, 0, 100);
+        }
+
+        static int CountKeywordHits(string text, string[] keywords)
+        {
+            int hits = 0;
+            for (int i = 0; i < keywords.Length; i++)
+            {
+                if (text.Contains(keywords[i])) hits++;
+            }
+            return hits;
         }
 
         async Task SendTurn()
@@ -293,6 +355,12 @@ namespace Whisperer
             DateTime replyDate = timeManager.GetReplyDate();
 
             string playerLetter = ComposePlayerLetter(body, sendDate);
+
+            ApplyMvpRelationshipEffects(body);
+            if (letterPromptBuilder != null)
+            {
+                letterPromptBuilder.SetRelationshipState(akeleySanity, akeleyTrust);
+            }
 
             string systemPrompt = letterPromptBuilder.BuildSystemPrompt(timeManager, lastAssistantLetter);
             string userPrompt = letterPromptBuilder.BuildUserTurnPrompt(timeManager, body);
