@@ -62,4 +62,43 @@ public class LetterPromptBuilderTests
         StringAssert.Contains("Test body.", userPrompt);
         UnityEngine.Object.DestroyImmediate(go);
     }
+
+    [Test]
+    public void BuildSystemPrompt_IncludesInUniverseFraming_WhenRetrieved()
+    {
+        GameObject go = new GameObject("prompt-builder-in-universe-test");
+        GameTimeManager time = go.AddComponent<GameTimeManager>();
+        StoryEventLedger ledger = go.AddComponent<StoryEventLedger>();
+        LetterPromptBuilder builder = go.AddComponent<LetterPromptBuilder>();
+
+        ledger.seedJson = new TextAsset(@"{
+  ""entries"": [
+    {
+      ""id"": ""in-universe-1"",
+      ""title"": ""Occult report"",
+      ""description"": ""Whispered testimony attributed to a forbidden grimoire."",
+      ""sourceType"": ""in-universe"",
+      ""tags"": [""necronomicon""],
+      ""validFromYear"": 1928,
+      ""validFromMonth"": 1,
+      ""validFromDay"": 1,
+      ""hasEndDate"": false,
+      ""validToYear"": 0,
+      ""validToMonth"": 0,
+      ""validToDay"": 0,
+      ""reliability"": 52
+    }
+  ]
+}");
+
+        ledger.EnsureLoaded();
+        builder.storyEventLedger = ledger;
+
+        string prompt = builder.BuildSystemPrompt(time, "");
+
+        StringAssert.Contains("In-universe source handling:", prompt);
+        StringAssert.Contains("Do not use modern out-of-universe disclaimers.", prompt);
+        StringAssert.Contains("tentative confidence", prompt);
+        UnityEngine.Object.DestroyImmediate(go);
+    }
 }

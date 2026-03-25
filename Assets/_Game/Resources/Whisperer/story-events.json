@@ -44,6 +44,21 @@
       "validToMonth": 0,
       "validToDay": 0,
       "reliability": 85
+    },
+    {
+      "id": "in-universe-necronomicon-rumor",
+      "title": "Occult circles whisper of Alhazred fragments",
+      "description": "Private reports mention passages attributed to the Necronomicon regarding entities that traverse the outer gulfs and barter forbidden knowledge.",
+      "sourceType": "in-universe",
+      "tags": ["necronomicon", "alhazred", "occult", "rumor"],
+      "validFromYear": 1900,
+      "validFromMonth": 1,
+      "validFromDay": 1,
+      "hasEndDate": false,
+      "validToYear": 0,
+      "validToMonth": 0,
+      "validToDay": 0,
+      "reliability": 52
     }
   ]
 }

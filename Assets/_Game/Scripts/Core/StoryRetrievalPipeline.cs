@@ -92,6 +92,39 @@ namespace Whisperer
             return builder.ToString().TrimEnd();
         }
 
+        public static string BuildSourceFramingBlock(List<StoryEventEntry> entries)
+        {
+            if (entries == null || entries.Count == 0) return "";
+
+            bool hasInUniverse = false;
+            int maxInUniverseReliability = 0;
+            for (int i = 0; i < entries.Count; i++)
+            {
+                StoryEventEntry entry = entries[i];
+                if (!string.Equals(entry.sourceType, StoryEventMetadataValidator.SourceInUniverse, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                hasInUniverse = true;
+                maxInUniverseReliability = Math.Max(maxInUniverseReliability, Math.Clamp(entry.reliability, 0, 100));
+            }
+
+            if (!hasInUniverse) return "";
+
+            StringBuilder builder = new StringBuilder();
+            builder.AppendLine("In-universe source handling:");
+            builder.AppendLine("- Treat fictional grimoires and testimonies as real within this setting.");
+            builder.AppendLine("- Present them in period voice as quoted passages, rumors, witness reports, or private correspondence.");
+            builder.AppendLine("- Do not use modern out-of-universe disclaimers.");
+            builder.Append("- Confidence level for in-universe material: ");
+            builder.Append(GetConfidenceLabel(maxInUniverseReliability));
+            builder.Append(" (");
+            builder.Append(maxInUniverseReliability);
+            builder.AppendLine("/100)." );
+            return builder.ToString().TrimEnd();
+        }
+
         static int ScoreEntry(StoryEventEntry entry, DateTime timelineDate)
         {
             int sourceWeight = GetSourceWeight(entry.sourceType);
@@ -126,6 +159,14 @@ namespace Whisperer
                 default:
                     return 10;
             }
+        }
+
+        static string GetConfidenceLabel(int reliability)
+        {
+            if (reliability >= 80) return "high confidence";
+            if (reliability >= 60) return "moderate confidence";
+            if (reliability >= 40) return "tentative confidence";
+            return "rumor-level confidence";
         }
 
         static string BuildTrace(

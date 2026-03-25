@@ -129,6 +129,7 @@ Acceptance Criteria:
 Priority: P1
 Effort: S
 Dependencies: 5, 6
+Status: Completed
 Description:
 - Support references that are fictional in reality but real in-universe.
 - Tag these sources and control how confidently they are presented.
@@ -140,6 +141,7 @@ Acceptance Criteria:
 Priority: P1
 Effort: S
 Dependencies: 1, 2
+Status: Completed
 Description:
 - Add read-only browser for prior sent/received letters and dates.
 Acceptance Criteria:
@@ -178,13 +180,106 @@ Description:
 Acceptance Criteria:
 - One-click per-turn trace shows why output was generated.
 
+## P3 - Enhanced UX and Presentation
+
+### 12) Improved correspondence UI
+Priority: P3
+Effort: S
+Dependencies: 8
+Status: In Progress
+Description:
+- Restructure letter UI into three-column layout: Received Letter (left) | Composer (center) | Archive (right).
+- Received letter displayed in prominent, readable view.
+- Archive easily accessible for reference while drafting.
+Acceptance Criteria:
+- Player can read latest reply in large, clear view.
+- Archive browser easily accessible without interrupting draft flow.
+- UI responsive and balanced across three panels.
+
+### 13) Letter drag-and-drop interactions
+Priority: P3
+Effort: S
+Dependencies: 12
+Description:
+- Allow clicking and dragging letters around on-screen for organization.
+- Position persists during play session.
+Acceptance Criteria:
+- Letters can be dragged to new positions.
+- Dragging does not interfere with text selection or reading.
+- Position resets on scene reload (session-only).
+
+### 14) Multi-draft compose workflow
+Priority: P3
+Effort: M
+Dependencies: 2
+Description:
+- Allow player to write multiple letter drafts and choose which to send.
+- Previous drafts remain accessible for reference/revision.
+Acceptance Criteria:
+- Player can save draft without sending.
+- Multiple drafts browsable; player selects one to send.
+- Sending clears unsent drafts.
+
+### 15) Letter composition animations
+Priority: P3
+Effort: M
+Dependencies: 1, 2
+Description:
+- Animate letter text being written or typed (character-by-character).
+- Later in story, some letters are typed (modern era reference).
+- Optional: read-aloud narration as letter appears.
+Acceptance Criteria:
+- Incoming Akeley letters animate with smooth reveal.
+- Animation speed configurable.
+- Optional read-aloud audio tracks supported for future audio implementation.
+
+### 16) 3D desk scene integration
+Priority: P3
+Effort: L
+Dependencies: 2
+Description:
+- 3D scene showing a historical desk with letters, writing materials, lore books.
+- Player composes and reads letters in immersive 3D environment.
+- Option to switch between 2D UI and 3D desk view.
+Acceptance Criteria:
+- 3D desk scene loads and renders correctly.
+- Letter interactions (read, compose, send) work in 3D context.
+- Toggle between 2D and 3D modes without losing state.
+
+### 17) Letter send/receive animations
+Priority: P3
+Effort: M
+Dependencies: 2, 15
+Description:
+- Animate letter being sealed, addressed, sent (physical envelope movement).
+- Animate incoming letter being delivered (physical envelope arrival).
+- Support fade-in/fade-out transitions.
+Acceptance Criteria:
+- Outgoing letter animates through send sequence.
+- Incoming letter animates through receive sequence.
+- Animations skip-able with button press or auto-complete after timeout.
+
+### 18) Endgame: Invitation to Akeley's house
+Priority: P3
+Effort: L
+Dependencies: 1, 4, 6
+Description:
+- After sufficient turns and successful correspondence, Akeley invites Wilmarth to visit.
+- Triggers final story sequence and gameplay arc closure.
+- Option: procedural final confrontation scene based on choices made during correspondence.
+Acceptance Criteria:
+- Invitation appears in letter after triggering condition met.
+- Final scene accessible after acceptance; shows definitive end-state.
+- Player choices during correspondence influence final sequence tone/content if applicable.
+
 ## Suggested Build Order
 
 1. 1 -> 2 -> 3
 2. 4
 3. 5 -> 6
-4. 7 -> 8
+4. 7 -> 8 -> 12
 5. 9 -> 10 -> 11
+6. 13 -> 14 -> 15 -> 16 -> 17 -> 18
 
 ## Definition of Done (Feature)
 
@@ -196,5 +291,13 @@ A feature is done when:
 
 ## Immediate Next Tickets
 
-1. Add in-universe source handling and confidence framing (P1 #7).
-2. Add letter archive and timeline browser UI (P1 #8).
+1. Implement consistency validator for contradiction detection and fallback generation (P2 #9).
+2. Build authoring workflow for content packs with validation (P2 #10).
+3. Add diagnostics panel for prompt/retrieval traces (P2 #11).
+
+## Future Enhancement Priorities (When Ready)
+
+- P3 #13-18: Enhanced UX with animations, 3D desk scene, drag interactions, and endgame content.
+  - Recommend starting with #13 (drag) and #14 (multi-draft) as quick wins.
+  - #16 (3D desk) and #18 (endgame) are major content additions requiring design review.
+  - #15 (animations) and #17 (send/receive effects) enhance feel but are not critical to core loop.

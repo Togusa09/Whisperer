@@ -27,7 +27,7 @@ public class LetterUiTurnFlowPlayModeTests
     }
 
     [UnityTest]
-    public IEnumerator SendTurn_LogsPlayerImmediately_AndAssistantOnCompletion()
+    public IEnumerator SendTurn_ArchivesAndDisplaysReply()
     {
         SceneManager.LoadScene(ScenePath, new LoadSceneParameters(LoadSceneMode.Single));
         yield return null;
@@ -39,21 +39,21 @@ public class LetterUiTurnFlowPlayModeTests
         controller.modelClient = fake;
 
         int turnBefore = controller.timeManager.CurrentTurn;
-        int historyBefore = controller.HistoryEntryCountForTests;
 
         Task sendTask = controller.SendTurnForTests("I write to ask if the disturbances have continued.");
         yield return null;
 
-        Assert.AreEqual(historyBefore + 1, controller.HistoryEntryCountForTests, "Player entry should appear immediately.");
-
         yield return WaitForTask(sendTask, 2f);
 
         Assert.AreEqual(turnBefore + 1, controller.timeManager.CurrentTurn, "Turn should advance after completion.");
-        Assert.AreEqual(historyBefore + 2, controller.HistoryEntryCountForTests, "Assistant entry should be appended once on completion.");
+        Assert.AreEqual(1, controller.ArchiveTurnCountForTests, "Archive should contain exactly one recorded turn.");
 
-        string assistantEntry = controller.GetHistoryEntryTextForTests(controller.HistoryEntryCountForTests - 1);
-        StringAssert.Contains("Akeley:", assistantEntry);
-        StringAssert.Contains("hills are uneasy", assistantEntry.ToLowerInvariant());
+        // Archive detail should contain full correspondence for Turn 1
+        string archiveDetail = controller.ArchiveDetailTextForTests;
+        StringAssert.Contains("Turn 1", archiveDetail);
+        StringAssert.Contains("Wilmarth:", archiveDetail);
+        StringAssert.Contains("Akeley:", archiveDetail);
+        StringAssert.Contains("hills are uneasy", archiveDetail.ToLowerInvariant());
     }
 
     static IEnumerator WaitForTask(Task task, float timeoutSeconds)

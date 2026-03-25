@@ -27,10 +27,13 @@ namespace Whisperer
         [SerializeField] string lastUserPrompt = "";
         [TextArea(6, 16)]
         [SerializeField] string lastRetrievalTrace = "";
+        [TextArea(5, 14)]
+        [SerializeField] string lastSourceFraming = "";
 
         public string LastSystemPrompt => lastSystemPrompt;
         public string LastUserPrompt => lastUserPrompt;
         public string LastRetrievalTrace => lastRetrievalTrace;
+        public string LastSourceFraming => lastSourceFraming;
 
         public string BuildSystemPrompt(GameTimeManager timeManager, string previousAssistantLetter)
         {
@@ -75,6 +78,12 @@ namespace Whisperer
                     builder.AppendLine();
                     builder.AppendLine(contextBlock);
                 }
+
+                if (!string.IsNullOrWhiteSpace(lastSourceFraming))
+                {
+                    builder.AppendLine();
+                    builder.AppendLine(lastSourceFraming);
+                }
             }
 
             builder.AppendLine();
@@ -89,6 +98,10 @@ namespace Whisperer
                 if (!string.IsNullOrWhiteSpace(lastRetrievalTrace))
                 {
                     Debug.Log($"[Whisperer] {lastRetrievalTrace}");
+                }
+                if (!string.IsNullOrWhiteSpace(lastSourceFraming))
+                {
+                    Debug.Log($"[Whisperer] {lastSourceFraming}");
                 }
             }
 
@@ -125,6 +138,7 @@ namespace Whisperer
             if (!useRetrievalPipeline)
             {
                 lastRetrievalTrace = "";
+                lastSourceFraming = "";
                 return storyEventLedger.BuildContextBlock(replyDate, maxLedgerEntries);
             }
 
@@ -137,6 +151,7 @@ namespace Whisperer
                 debugLogPrompts);
 
             lastRetrievalTrace = retrievalResult.trace;
+            lastSourceFraming = StoryRetrievalPipeline.BuildSourceFramingBlock(retrievalResult.entries);
             return StoryRetrievalPipeline.BuildContextBlock(retrievalResult.entries);
         }
 

@@ -5,29 +5,43 @@
             <ui:VisualElement name="HeaderSection" class="header-section">
                 <ui:Label name="EyebrowLabel" text="Whisperer Correspondence" class="eyebrow" />
                 <ui:Label name="TurnLabel" text="Turn 1" class="turn-label" />
-                <ui:VisualElement name="LetterMetaCard" class="letter-meta-card">
-                    <ui:Label name="ToLabel" text="To:" class="meta-line meta-primary" />
-                    <ui:Label name="FromLabel" text="From:" class="meta-line" />
-                    <ui:Label name="DateLabel" text="Date:" class="meta-line" />
-                    <ui:Label name="ToAddressLabel" text="Recipient Address:" class="meta-line meta-small" />
-                    <ui:Label name="FromAddressLabel" text="Sender Address:" class="meta-line meta-small" />
-                </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement name="BodySection" class="body-section">
                 <ui:VisualElement name="ComposerColumn" class="composer-column">
-                    <ui:Label name="ComposerTitle" text="Letter Draft" class="section-title" />
-                    <ui:Label name="ComposerHint" text="Compose Wilmarth's monthly reply with period-appropriate detail." class="section-hint" />
+                    <ui:VisualElement name="LetterMetaCard" class="letter-meta-card">
+                        <ui:Label name="ToLabel" text="To:" class="meta-line meta-primary" />
+                        <ui:Label name="FromLabel" text="From:" class="meta-line" />
+                        <ui:Label name="DateLabel" text="Date:" class="meta-line" />
+                        <ui:Label name="ToAddressLabel" text="Recipient Address:" class="meta-line meta-small" />
+                        <ui:Label name="FromAddressLabel" text="Sender Address:" class="meta-line meta-small" />
+                    </ui:VisualElement>
+                    <ui:Label name="ComposerTitle" text="Your Reply" class="section-title" />
+                    <ui:Label name="ComposerHint" text="Compose Wilmarth's monthly response with period-appropriate detail." class="section-hint" />
                     <ui:TextField name="BodyField" multiline="true" class="body-field" />
                     <ui:VisualElement name="ActionRow" class="action-row">
                         <ui:Button name="SendButton" text="Send Letter" class="send-button" />
                         <ui:Label name="StatusLabel" text="Ready" class="status-label" />
                     </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:VisualElement name="HistoryColumn" class="history-column">
-                    <ui:Label name="HistoryTitle" text="Correspondence Log" class="section-title" />
-                    <ui:Label name="HistoryHint" text="Recent drafts and Akeley replies appear here as the exchange unfolds." class="section-hint" />
-                    <ui:ScrollView name="HistoryView" class="history-view" mode="Vertical" />
+                <ui:VisualElement name="ArchiveColumn" class="archive-column">
+                    <ui:Label name="ArchiveTitle" text="Correspondence Archive" class="section-title" />
+                    <ui:Label name="ArchiveHint" text="Select a prior turn to review full exchange." class="section-hint" />
+                    <ui:ScrollView name="ArchiveListView" class="archive-list-view" mode="Vertical" />
+                    <ui:ScrollView name="ArchiveDetailView" class="archive-detail-view" mode="Vertical">
+                        <ui:Label name="ArchiveDetailLabel" text="No turns recorded yet." class="archive-detail-label" />
+                    </ui:ScrollView>
                 </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="LetterPopupOverlay" class="letter-popup-overlay" style="display: none;">
+            <ui:VisualElement name="LetterPopupPanel" class="letter-popup-panel">
+                <ui:VisualElement name="PopupHeader" class="popup-header">
+                    <ui:Label name="PopupTitle" text="Letter from Akeley" class="popup-title" />
+                    <ui:Button name="PopupCloseButton" text="✕" class="popup-close-button" />
+                </ui:VisualElement>
+                <ui:ScrollView name="PopupContentView" class="popup-content-view" mode="Vertical">
+                    <ui:Label name="PopupLetterContent" text="Letter content..." class="popup-letter-content" />
+                </ui:ScrollView>
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

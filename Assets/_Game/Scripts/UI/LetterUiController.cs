@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using LLMUnity;
@@ -57,6 +59,16 @@ namespace Whisperer
     [RequireComponent(typeof(UIDocument))]
     public class LetterUiController : MonoBehaviour
     {
+        class TurnArchiveRecord
+        {
+            public int turnIndex;
+            public string senderName;
+            public DateTime sendDate;
+            public DateTime replyDate;
+            public string playerLetter;
+            public string assistantLetter;
+        }
+
         const string LayoutResourcePath = "Whisperer/UI/LetterUI";
         const string StyleResourcePath = "Whisperer/UI/LetterUITheme";
 
@@ -84,13 +96,19 @@ namespace Whisperer
         TextField bodyField;
         Button sendButton;
         Label statusLabel;
-        ScrollView historyView;
+        ScrollView archiveListView;
+        ScrollView archiveDetailView;
+        Label archiveDetailLabel;
+        VisualElement letterPopupOverlay;
+        Label popupLetterContent;
+        Button popupCloseButton;
 
         bool requestInFlight;
         bool uiBuilt;
         string lastAssistantLetter = "";
         VisualTreeAsset layoutAsset;
         StyleSheet styleSheet;
+        readonly List<TurnArchiveRecord> turnArchive = new List<TurnArchiveRecord>();
 
         void Awake()
         {
@@ -171,7 +189,12 @@ namespace Whisperer
             bodyField = root.Q<TextField>("BodyField");
             sendButton = root.Q<Button>("SendButton");
             statusLabel = root.Q<Label>("StatusLabel");
-            historyView = root.Q<ScrollView>("HistoryView");
+            archiveListView = root.Q<ScrollView>("ArchiveListView");
+            archiveDetailView = root.Q<ScrollView>("ArchiveDetailView");
+            archiveDetailLabel = root.Q<Label>("ArchiveDetailLabel");
+            letterPopupOverlay = root.Q<VisualElement>("LetterPopupOverlay");
+            popupLetterContent = root.Q<Label>("PopupLetterContent");
+            popupCloseButton = root.Q<Button>("PopupCloseButton");
 
             if (bodyField != null)
             {
@@ -184,7 +207,14 @@ namespace Whisperer
                 sendButton.clicked += () => _ = SendTurn();
             }
 
+            if (popupCloseButton != null)
+            {
+                popupCloseButton.clicked += CloseLetterPopup;
+            }
+
             uiBuilt = true;
+            InitializeWithSeedCorrespondence();
+            RefreshArchiveUi();
         }
 
         void EnsureUiBuilt()
@@ -263,7 +293,6 @@ namespace Whisperer
             DateTime replyDate = timeManager.GetReplyDate();
 
             string playerLetter = ComposePlayerLetter(body, sendDate);
-            AddHistoryEntry("Wilmarth", playerLetter);
 
             string systemPrompt = letterPromptBuilder.BuildSystemPrompt(timeManager, lastAssistantLetter);
             string userPrompt = letterPromptBuilder.BuildUserTurnPrompt(timeManager, body);
@@ -274,8 +303,9 @@ namespace Whisperer
 
                 string assistantReply = await activeModelClient.GenerateReply(systemPrompt, userPrompt, _ => { });
                 lastAssistantLetter = assistantReply?.Trim() ?? "";
-                AddHistoryEntry("Akeley", $"{timeManager.FormatDate(replyDate)}\n\n{lastAssistantLetter}");
+                UpdateReceivedLetterView(replyDate, lastAssistantLetter);
                 storyEventLedger.RecordGeneratedLetter(replyDate, lastAssistantLetter);
+                RecordArchiveTurn(sendDate, replyDate, playerLetter, lastAssistantLetter);
                 timeManager.AdvanceTurn();
 
                 if (bodyField != null) bodyField.value = "My dear Mr. Akeley,\n\n";
@@ -317,17 +347,186 @@ namespace Whisperer
             return SendTurnInternal(letterBody);
         }
 
-        public int HistoryEntryCountForTests => historyView?.childCount ?? 0;
+        public string StatusTextForTests => statusLabel?.text ?? "";
 
-        public string GetHistoryEntryTextForTests(int index)
+        public int ArchiveTurnCountForTests => turnArchive.Count;
+
+        public string ArchiveDetailTextForTests => archiveDetailLabel?.text ?? "";
+
+        void UpdateReceivedLetterView(DateTime replyDate, string letterContent)
         {
-            if (historyView == null) return "";
-            if (index < 0 || index >= historyView.childCount) return "";
-            if (historyView[index] is Label label) return label.text;
-            return "";
+            if (popupLetterContent == null) return;
+            popupLetterContent.text = 
+                $"{timeManager.FormatDate(replyDate)}\n\n" +
+                letterContent;
+            ShowLetterPopup();
         }
 
-        public string StatusTextForTests => statusLabel?.text ?? "";
+        void ShowLetterPopup()
+        {
+            if (letterPopupOverlay == null) return;
+            letterPopupOverlay.style.display = DisplayStyle.Flex;
+        }
+
+        void CloseLetterPopup()
+        {
+            if (letterPopupOverlay == null) return;
+            letterPopupOverlay.style.display = DisplayStyle.None;
+        }
+
+        void InitializeWithSeedCorrespondence()
+        {
+            // Add Akeley's introduction letter from the story
+            string akeleyIntro = "My dear Mr. Wilmarth,\n\n" +
+                "I have ventured to write you after reading your discourse in the Arkham Advertiser regarding the flood phenomena and the ancient Vermont legends. " +
+                "Your skepticism is perhaps warranted, but I believe you to be a man of both learning and intellectual honesty, and I felt compelled to share observations " +
+                "I have made from my farm here in the hills.\n\n" +
+                "The things that the rural folk speak of are all too real, I fear. I have found evidence of peculiar tracks and formations in the remote valleys near my property. " +
+                "More troubling still are the sounds—strange mutterings in the night that seem almost articulate, yet utterly alien.\n\n" +
+                "I hesitate to trouble you with these matters without stronger proof, but I find myself increasingly convinced that the legends contain a kernel of terrible truth. " +
+                "Should you be willing to correspond further on this matter, I would welcome your thoughts on the historical record of these sightings.\n\n" +
+                "Yours in cautious inquiry,\n" +
+                "Henry Wentworth Akeley";
+            
+            DateTime akeleyDate = new DateTime(1928, 4, 1);
+            turnArchive.Add(new TurnArchiveRecord
+            {
+                turnIndex = 0,
+                senderName = "Henry W. Akeley",
+                sendDate = akeleyDate,
+                replyDate = akeleyDate,
+                playerLetter = "",
+                assistantLetter = akeleyIntro
+            });
+
+            // Add initial flood creature context letters
+            string floodContextA = "My dear Mr. Wilmarth,\n\n" +
+                "I thought you might be interested in hearing of some unusual reports circulating among my colleagues here at the University. " +
+                "During the recent floods in November, several farmers and local observers claim to have witnessed curious objects in the swollen waters.\n\n" +
+                "The descriptions are remarkably consistent—creatures of some sort, though their exact nature remains unclear. " +
+                "Some witnesses spoke of organic shapes unlike any known animal, with peculiar appendages and an unsettling appearance.\n\n" +
+                "The general conclusion among my peers is that these are merely misidentified flood debris or animal remains, distorted by imagination and folklore. " +
+                "However, I find the consistency of the reports intriguing. Thought you should know of these accounts.\n\n" +
+                "Best regards,\n" +
+                "A Colleague at Miskatonic University";
+
+            DateTime floodDate1 = new DateTime(1927, 11, 15);
+            turnArchive.Add(new TurnArchiveRecord
+            {
+                turnIndex = 0,
+                senderName = "A Colleague at Miskatonic University",
+                sendDate = floodDate1,
+                replyDate = floodDate1,
+                playerLetter = "",
+                assistantLetter = floodContextA
+            });
+
+            string floodContextB = "My dear Mr. Wilmarth,\n\n" +
+                "Further to my previous letter regarding the flood phenomena, I have learned of additional accounts from the river valleys. " +
+                "A farmer near Newfane reported finding peculiar impressions in the muddy riverbank—marks that do not match any known animal.\n\n" +
+                "The local folk are naturally inclined toward supernatural explanations, resurrecting old legends about the 'creatures of the hills.' " +
+                "Naturally, we must be skeptical of such claims, yet the physical evidence deserves examination.\n\n" +
+                "I confess I am uncertain what to make of these reports. Perhaps you might offer your scholarly perspective on the historical precedent for such sightings.\n\n" +
+                "Your friend,\n" +
+                "A Vermont Correspondent";
+
+            DateTime floodDate2 = new DateTime(1927, 11, 25);
+            turnArchive.Add(new TurnArchiveRecord
+            {
+                turnIndex = 0,
+                senderName = "A Vermont Correspondent",
+                sendDate = floodDate2,
+                replyDate = floodDate2,
+                playerLetter = "",
+                assistantLetter = floodContextB
+            });
+        }
+
+        void RecordArchiveTurn(DateTime sendDate, DateTime replyDate, string playerLetter, string assistantLetter)
+        {
+            turnArchive.Add(new TurnArchiveRecord
+            {
+                turnIndex = timeManager.CurrentTurn + 1,
+                senderName = toName,
+                sendDate = sendDate,
+                replyDate = replyDate,
+                playerLetter = playerLetter,
+                assistantLetter = assistantLetter
+            });
+
+            RefreshArchiveUi();
+        }
+
+        void RefreshArchiveUi()
+        {
+            if (archiveListView == null || archiveDetailLabel == null) return;
+
+            archiveListView.Clear();
+            if (turnArchive.Count == 0)
+            {
+                archiveDetailLabel.text = "No turns recorded yet.";
+                return;
+            }
+
+            List<TurnArchiveRecord> sorted = turnArchive.OrderBy(r => r.sendDate).ToList();
+            List<Button> buttons = new List<Button>();
+            for (int i = 0; i < sorted.Count; i++)
+            {
+                TurnArchiveRecord record = sorted[i];
+                int index = i;
+                string label = string.IsNullOrWhiteSpace(record.senderName)
+                    ? record.sendDate.ToString("MMM d, yyyy")
+                    : $"{record.sendDate:MMM d, yyyy} \u2014 {record.senderName}";
+                Button button = new Button(() =>
+                {
+                    foreach (Button b in buttons)
+                        b.RemoveFromClassList("archive-turn-button--selected");
+                    buttons[index].AddToClassList("archive-turn-button--selected");
+                    ShowArchiveTurnFromSorted(sorted, index);
+                })
+                {
+                    text = label
+                };
+                button.AddToClassList("archive-turn-button");
+                archiveListView.Add(button);
+                buttons.Add(button);
+            }
+
+            int lastIndex = sorted.Count - 1;
+            buttons[lastIndex].AddToClassList("archive-turn-button--selected");
+            ShowArchiveTurnFromSorted(sorted, lastIndex);
+        }
+
+        void ShowArchiveTurn(int index)
+        {
+            if (archiveDetailLabel == null) return;
+            if (index < 0 || index >= turnArchive.Count) return;
+            ShowArchiveTurnRecord(turnArchive[index]);
+        }
+
+        void ShowArchiveTurnFromSorted(List<TurnArchiveRecord> sorted, int index)
+        {
+            if (archiveDetailLabel == null) return;
+            if (index < 0 || index >= sorted.Count) return;
+            ShowArchiveTurnRecord(sorted[index]);
+        }
+
+        void ShowArchiveTurnRecord(TurnArchiveRecord record)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(timeManager.FormatDate(record.sendDate));
+            if (!string.IsNullOrWhiteSpace(record.playerLetter))
+            {
+                sb.AppendLine();
+                sb.AppendLine("Wilmarth:");
+                sb.AppendLine(record.playerLetter);
+            }
+            sb.AppendLine();
+            string sender = string.IsNullOrWhiteSpace(record.senderName) ? "Akeley" : record.senderName;
+            sb.AppendLine($"{sender}:");
+            sb.Append(record.assistantLetter);
+            archiveDetailLabel.text = sb.ToString();
+        }
 
         string ComposePlayerLetter(string body, DateTime sendDate)
         {
@@ -338,28 +537,6 @@ namespace Whisperer
                 body + "\n\n" +
                 "Yours very truly,\n" +
                 fromName;
-        }
-
-        Label AddHistoryEntry(string speaker, string content)
-        {
-            if (historyView == null) return null;
-
-            Label label = new Label
-            {
-                text = $"{speaker}:\n\n{content}"
-            };
-            label.AddToClassList("history-entry");
-            label.AddToClassList(speaker == "Wilmarth" ? "history-entry-player" : "history-entry-ai");
-            label.style.whiteSpace = WhiteSpace.Normal;
-            label.style.marginBottom = 8;
-            label.style.paddingLeft = 8;
-            label.style.paddingRight = 8;
-            label.style.paddingTop = 8;
-            label.style.paddingBottom = 8;
-            label.style.backgroundColor = speaker == "Wilmarth" ? new Color(0.9f, 0.95f, 1f, 0.7f) : new Color(1f, 0.95f, 0.85f, 0.7f);
-            historyView.Add(label);
-            historyView.scrollOffset = new Vector2(0, historyView.contentContainer.layout.height + 9999f);
-            return label;
         }
     }
 }
