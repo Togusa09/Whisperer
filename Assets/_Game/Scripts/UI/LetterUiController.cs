@@ -60,6 +60,13 @@ namespace Whisperer
     [RequireComponent(typeof(UIDocument))]
     public class LetterUiController : MonoBehaviour
     {
+        enum ComposerSectionState
+        {
+            Compose,
+            InTransit,
+            ReplyReady
+        }
+
         class TurnArchiveRecord
         {
             public int turnIndex;
@@ -83,6 +90,9 @@ namespace Whisperer
         public StoryConsistencyValidator consistencyValidator;
         public PanelSettings panelSettingsAsset;
 
+        [Header("LLM Warmup")]
+        public bool warmupOnStart = true;
+
         [Header("Template")]
         public string fromName = "Albert N. Wilmarth";
         public string toName = "Henry W. Akeley";
@@ -98,9 +108,15 @@ namespace Whisperer
         Label trustLabel;
         Label toAddressLabel;
         Label fromAddressLabel;
+        Label composerTitle;
+        Label composerHint;
         TextField bodyField;
         Button sendButton;
         Label statusLabel;
+        VisualElement actionRow;
+        VisualElement composerNotificationPanel;
+        Label composerNotificationLabel;
+        Button composerNotificationButton;
         ScrollView archiveListView;
         ScrollView archiveDetailView;
         Label archiveDetailLabel;
@@ -113,6 +129,7 @@ namespace Whisperer
         Label diagnosticsResponseLabel;
         Label diagnosticsValidationLabel;
         Button refreshDiagnosticsButton;
+        Button warmupModelButton;
         Button pauseModelButton;
         Button stopGenerationButton;
         Button clearContextButton;
@@ -140,6 +157,11 @@ namespace Whisperer
         string lastValidationReport = "";
         string lastSystemPromptSent = "";
         string lastUserPromptSent = "";
+        bool warmupInFlight;
+        bool warmupCompleted;
+        bool startupWarmupRequested;
+        string lastWarmupStatus = "Not started.";
+        ComposerSectionState composerState = ComposerSectionState.Compose;
 
         void Awake()
         {
@@ -149,6 +171,12 @@ namespace Whisperer
         void Start()
         {
             EnsureUiBuilt();
+
+            if (warmupOnStart && !startupWarmupRequested)
+            {
+                startupWarmupRequested = true;
+                _ = WarmupModelAsync(false);
+            }
         }
 
         void OnEnable()
@@ -224,9 +252,15 @@ namespace Whisperer
             trustLabel = root.Q<Label>("TrustLabel");
             toAddressLabel = root.Q<Label>("ToAddressLabel");
             fromAddressLabel = root.Q<Label>("FromAddressLabel");
+            composerTitle = root.Q<Label>("ComposerTitle");
+            composerHint = root.Q<Label>("ComposerHint");
             bodyField = root.Q<TextField>("BodyField");
             sendButton = root.Q<Button>("SendButton");
             statusLabel = root.Q<Label>("StatusLabel");
+            actionRow = root.Q<VisualElement>("ActionRow");
+            composerNotificationPanel = root.Q<VisualElement>("ComposerNotificationPanel");
+            composerNotificationLabel = root.Q<Label>("ComposerNotificationLabel");
+            composerNotificationButton = root.Q<Button>("ComposerNotificationButton");
             archiveListView = root.Q<ScrollView>("ArchiveListView");
             archiveDetailView = root.Q<ScrollView>("ArchiveDetailView");
             archiveDetailLabel = root.Q<Label>("ArchiveDetailLabel");
@@ -239,6 +273,7 @@ namespace Whisperer
             diagnosticsResponseLabel = root.Q<Label>("DiagnosticsResponseLabel");
             diagnosticsValidationLabel = root.Q<Label>("DiagnosticsValidationLabel");
             refreshDiagnosticsButton = root.Q<Button>("RefreshDiagnosticsButton");
+            warmupModelButton = root.Q<Button>("WarmupModelButton");
             pauseModelButton = root.Q<Button>("PauseModelButton");
             stopGenerationButton = root.Q<Button>("StopGenerationButton");
             clearContextButton = root.Q<Button>("ClearContextButton");
@@ -265,9 +300,19 @@ namespace Whisperer
                 popupCloseButton.clicked += CloseLetterPopup;
             }
 
+            if (composerNotificationButton != null)
+            {
+                composerNotificationButton.clicked += OnComposerNotificationButtonClicked;
+            }
+
             if (refreshDiagnosticsButton != null)
             {
                 refreshDiagnosticsButton.clicked += () => RefreshDiagnostics(true);
+            }
+
+            if (warmupModelButton != null)
+            {
+                warmupModelButton.clicked += () => _ = WarmupModelAsync(true);
             }
 
             if (pauseModelButton != null)
@@ -301,6 +346,8 @@ namespace Whisperer
                 diagnosticsOverlay.style.display = DisplayStyle.None;
             }
 
+            SetComposerSectionState(ComposerSectionState.Compose);
+            UpdateControlStates();
             uiBuilt = true;
             InitializeWithSeedCorrespondence();
             RefreshArchiveUi();
@@ -416,6 +463,12 @@ namespace Whisperer
         async Task SendTurnInternal(string bodyOverride)
         {
             if (requestInFlight) return;
+            if (warmupInFlight)
+            {
+                if (statusLabel != null) statusLabel.text = "LLM warm-up in progress.";
+                return;
+            }
+
             if (llmPaused)
             {
                 if (statusLabel != null) statusLabel.text = "LLM is paused.";
@@ -443,8 +496,9 @@ namespace Whisperer
             }
 
             requestInFlight = true;
-            sendButton?.SetEnabled(false);
-            if (statusLabel != null) statusLabel.text = "Sending letter...";
+            SetComposerSectionState(ComposerSectionState.InTransit);
+            UpdateControlStates();
+            if (statusLabel != null) statusLabel.text = "Letter is in transit.";
 
             DateTime sendDate = timeManager.GetSendDate();
             DateTime replyDate = timeManager.GetReplyDate();
@@ -468,7 +522,7 @@ namespace Whisperer
 
             try
             {
-                if (statusLabel != null) statusLabel.text = "Receiving reply...";
+                if (statusLabel != null) statusLabel.text = "Awaiting Akeley's reply...";
 
                 string assistantReply = await activeModelClient.GenerateReply(systemPrompt, userPrompt, _ => { });
                 string candidateReply = assistantReply?.Trim() ?? "";
@@ -505,18 +559,107 @@ namespace Whisperer
                 if (bodyField != null) bodyField.value = "My dear Mr. Akeley,\n\n";
                 RefreshTemplateHeader();
                 RefreshDiagnostics(true);
-                if (statusLabel != null) statusLabel.text = "Reply received.";
+                SetComposerSectionState(ComposerSectionState.ReplyReady);
+                if (statusLabel != null) statusLabel.text = "Reply received from Akeley.";
             }
             catch (Exception ex)
             {
                 lastValidationReport = $"Generation failed: {ex.Message}";
                 RefreshDiagnostics(true);
+                SetComposerSectionState(ComposerSectionState.Compose);
                 if (statusLabel != null) statusLabel.text = $"Turn failed: {ex.Message}";
             }
             finally
             {
                 requestInFlight = false;
-                sendButton?.SetEnabled(!llmPaused);
+                UpdateControlStates();
+            }
+        }
+
+        async Task WarmupModelAsync(bool userInitiated)
+        {
+            if (warmupInFlight)
+            {
+                lastWarmupStatus = "Warm-up already in progress.";
+                if (userInitiated && statusLabel != null)
+                {
+                    statusLabel.text = lastWarmupStatus;
+                }
+
+                RefreshDiagnostics(true);
+                return;
+            }
+
+            if (requestInFlight)
+            {
+                lastWarmupStatus = "Warm-up blocked while a generation is in progress.";
+                if (userInitiated && statusLabel != null)
+                {
+                    statusLabel.text = lastWarmupStatus;
+                }
+
+                RefreshDiagnostics(true);
+                return;
+            }
+
+            LetterModelClient activeModelClient = ResolveModelClient();
+            if (llmAgent == null || activeModelClient == null)
+            {
+                lastWarmupStatus = "Warm-up unavailable: no LLMAgent found.";
+                if (userInitiated && statusLabel != null)
+                {
+                    statusLabel.text = lastWarmupStatus;
+                }
+
+                RefreshDiagnostics(true);
+                return;
+            }
+
+            if (!activeModelClient.IsConfigured)
+            {
+                lastWarmupStatus = "Warm-up unavailable: LLM model not configured in LLMStack.";
+                if (userInitiated && statusLabel != null)
+                {
+                    statusLabel.text = lastWarmupStatus;
+                }
+
+                RefreshDiagnostics(true);
+                return;
+            }
+
+            warmupInFlight = true;
+            UpdateControlStates();
+            lastWarmupStatus = "Warm-up running...";
+            if (statusLabel != null)
+            {
+                statusLabel.text = userInitiated ? "Warming up model..." : "Pre-warming model...";
+            }
+
+            RefreshDiagnostics(true);
+
+            try
+            {
+                await llmAgent.Warmup();
+                warmupCompleted = true;
+                lastWarmupStatus = $"Warm-up complete at {DateTime.Now:HH:mm:ss}.";
+                if (statusLabel != null)
+                {
+                    statusLabel.text = "LLM warm-up complete.";
+                }
+            }
+            catch (Exception ex)
+            {
+                lastWarmupStatus = $"Warm-up failed: {ex.Message}";
+                if (statusLabel != null)
+                {
+                    statusLabel.text = lastWarmupStatus;
+                }
+            }
+            finally
+            {
+                warmupInFlight = false;
+                UpdateControlStates();
+                RefreshDiagnostics(true);
             }
         }
 
@@ -533,10 +676,7 @@ namespace Whisperer
                 pauseModelButton.text = llmPaused ? "Resume LLM" : "Pause LLM";
             }
 
-            if (!requestInFlight)
-            {
-                sendButton?.SetEnabled(!llmPaused);
-            }
+            UpdateControlStates();
 
             if (statusLabel != null)
             {
@@ -555,6 +695,19 @@ namespace Whisperer
             }
 
             RefreshDiagnostics(true);
+        }
+
+        void UpdateControlStates()
+        {
+            bool canSend = !llmPaused && !requestInFlight && !warmupInFlight && composerState == ComposerSectionState.Compose;
+            bool canWarmup = !requestInFlight && !warmupInFlight;
+
+            sendButton?.SetEnabled(canSend);
+            warmupModelButton?.SetEnabled(canWarmup);
+            if (composerNotificationButton != null)
+            {
+                composerNotificationButton.SetEnabled(composerState == ComposerSectionState.ReplyReady);
+            }
         }
 
         void ShowDiagnosticsDialog()
@@ -611,13 +764,13 @@ namespace Whisperer
             if (diagnosticsSummaryLabel != null)
             {
                 diagnosticsSummaryLabel.text =
-                    $"Summary: paused={llmPaused}, inFlight={requestInFlight}, fallback={lastFallbackUsed}, genMs={lastGenerationMs}";
+                    $"Summary: paused={llmPaused}, warmupInFlight={warmupInFlight}, warmed={warmupCompleted}, inFlight={requestInFlight}, fallback={lastFallbackUsed}, genMs={lastGenerationMs}";
             }
 
             if (diagnosticsModelLabel != null)
             {
                 diagnosticsModelLabel.text =
-                    $"Model: {modelName} | chatMessages={chatCount} | promptChars={lastPromptChars} | responseChars={lastResponseChars}";
+                    $"Model: {modelName} | chatMessages={chatCount} | promptChars={lastPromptChars} | responseChars={lastResponseChars} | warmupStatus={lastWarmupStatus}";
             }
 
             if (diagnosticsResourceLabel != null)
@@ -715,11 +868,14 @@ namespace Whisperer
         public string ArchiveDetailTextForTests => archiveDetailLabel?.text ?? "";
 
         public bool DiagnosticsIsPaused => llmPaused;
+        public bool DiagnosticsIsWarmupInFlight => warmupInFlight;
+        public bool DiagnosticsHasWarmupCompleted => warmupCompleted;
         public bool DiagnosticsIsRequestInFlight => requestInFlight;
         public bool DiagnosticsLastFallbackUsed => lastFallbackUsed;
         public long DiagnosticsLastGenerationMs => lastGenerationMs;
         public int DiagnosticsLastPromptChars => lastPromptChars;
         public int DiagnosticsLastResponseChars => lastResponseChars;
+        public string DiagnosticsLastWarmupStatus => lastWarmupStatus;
         public string DiagnosticsLastSystemPrompt => lastSystemPromptSent;
         public string DiagnosticsLastUserPrompt => lastUserPromptSent;
         public string DiagnosticsLastResponse => lastAssistantLetter;
@@ -731,6 +887,11 @@ namespace Whisperer
         public void SetLlmPausedForDiagnostics(bool paused)
         {
             SetLlmPausedState(paused, paused ? "LLM paused." : "LLM resumed.");
+        }
+
+        public void WarmupForDiagnostics()
+        {
+            _ = WarmupModelAsync(true);
         }
 
         public void StopGenerationForDiagnostics()
@@ -749,6 +910,11 @@ namespace Whisperer
             popupLetterContent.text = 
                 $"{timeManager.FormatDate(replyDate)}\n\n" +
                 letterContent;
+        }
+
+        void OnComposerNotificationButtonClicked()
+        {
+            if (composerState != ComposerSectionState.ReplyReady) return;
             ShowLetterPopup();
         }
 
@@ -762,6 +928,69 @@ namespace Whisperer
         {
             if (letterPopupOverlay == null) return;
             letterPopupOverlay.style.display = DisplayStyle.None;
+            if (composerState == ComposerSectionState.ReplyReady)
+            {
+                SetComposerSectionState(ComposerSectionState.Compose);
+                if (statusLabel != null)
+                {
+                    statusLabel.text = "Ready";
+                }
+            }
+        }
+
+        void SetComposerSectionState(ComposerSectionState nextState)
+        {
+            composerState = nextState;
+
+            if (bodyField != null)
+            {
+                bodyField.style.display = nextState == ComposerSectionState.Compose ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+
+            if (actionRow != null)
+            {
+                actionRow.style.display = nextState == ComposerSectionState.Compose ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+
+            if (composerNotificationPanel != null)
+            {
+                composerNotificationPanel.style.display = nextState == ComposerSectionState.Compose ? DisplayStyle.None : DisplayStyle.Flex;
+            }
+
+            if (composerTitle != null)
+            {
+                composerTitle.text = nextState == ComposerSectionState.Compose ? "Your Reply" : "Correspondence Update";
+            }
+
+            if (composerHint != null)
+            {
+                if (nextState == ComposerSectionState.Compose)
+                {
+                    composerHint.text = "Compose Wilmarth's monthly response with period-appropriate detail.";
+                }
+                else if (nextState == ComposerSectionState.InTransit)
+                {
+                    composerHint.text = "Your letter has been sent and is now in transit.";
+                }
+                else
+                {
+                    composerHint.text = "Akeley's reply has arrived. Open it to continue the correspondence.";
+                }
+            }
+
+            if (composerNotificationLabel != null)
+            {
+                composerNotificationLabel.text = nextState == ComposerSectionState.InTransit
+                    ? "Letter in transit while Akeley prepares his reply..."
+                    : "Reply received from Akeley.";
+            }
+
+            if (composerNotificationButton != null)
+            {
+                composerNotificationButton.text = nextState == ComposerSectionState.ReplyReady
+                    ? "Open Akeley's Reply"
+                    : "Awaiting Reply...";
+            }
         }
 
         void InitializeWithSeedCorrespondence()
@@ -904,15 +1133,17 @@ namespace Whisperer
         void ShowArchiveTurnRecord(TurnArchiveRecord record)
         {
             var sb = new StringBuilder();
-            sb.AppendLine(timeManager.FormatDate(record.sendDate));
             if (!string.IsNullOrWhiteSpace(record.playerLetter))
             {
+                sb.AppendLine(timeManager.FormatDate(record.sendDate));
                 sb.AppendLine();
                 sb.AppendLine("Wilmarth:");
                 sb.AppendLine(record.playerLetter);
+                sb.AppendLine();
             }
-            sb.AppendLine();
             string sender = string.IsNullOrWhiteSpace(record.senderName) ? "Akeley" : record.senderName;
+            sb.AppendLine(timeManager.FormatDate(record.replyDate));
+            sb.AppendLine();
             sb.AppendLine($"{sender}:");
             sb.Append(record.assistantLetter);
             archiveDetailLabel.text = sb.ToString();

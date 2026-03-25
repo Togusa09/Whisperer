@@ -87,17 +87,17 @@ namespace Whisperer
             builder.AppendLine("- You may speculate only using period-appropriate ideas available by 1930.");
             builder.AppendLine("- Never mention being an AI, model, system prompt, safety policy, or generated text.");
             builder.AppendLine("- Stay in-character as Akeley and write only in-world correspondence.");
+            builder.AppendLine("- Do not repeat, paraphrase, or summarise sentences from your previous letter.");
+            builder.AppendLine("- Do not restate things Akeley has already told Wilmarth.");
+            builder.AppendLine("- Each letter must advance the story: report something new Akeley has observed, discovered, or decided to disclose for the first time.");
             builder.AppendLine();
             builder.AppendLine("Current timeline:");
             builder.AppendLine($"- Player send date: {timeManager.FormatDate(sendDate)}");
             builder.AppendLine($"- Your reply context date: {timeManager.FormatDate(replyDate)}");
             builder.AppendLine($"- Current turn index: {timeManager.CurrentTurn + 1}");
             builder.AppendLine();
-            builder.AppendLine("Temporal parsing rules:");
-            builder.AppendLine($"- Albert's letter was written on {timeManager.FormatDate(sendDate)}.");
-            builder.AppendLine($"- You are writing your reply on {timeManager.FormatDate(replyDate)}.");
-            builder.AppendLine("- If Albert asks what day it is now, answer with your reply context date.");
-            builder.AppendLine("- Mention the player's send date only when referring to when his letter was written or received.");
+            builder.AppendLine("Temporal note:");
+            builder.AppendLine($"- Your reply date is {timeManager.FormatDate(replyDate)}. Use this as 'today' if asked.");
             builder.AppendLine();
             builder.AppendLine("Relationship state (MVP simulation):");
             builder.AppendLine($"- Stability: {currentAkeleySanity}/100 ({DescribeSanityState(currentAkeleySanity)})");
@@ -131,9 +131,9 @@ namespace Whisperer
             if (!string.IsNullOrWhiteSpace(previousAssistantLetter))
             {
                 string previous = previousAssistantLetter.Trim();
-                if (previous.Length > 700) previous = previous.Substring(0, 700);
+                if (previous.Length > 500) previous = previous.Substring(0, 500);
                 builder.AppendLine();
-                builder.AppendLine("Your previous letter summary:");
+                builder.AppendLine("Topics already covered in your last letter (DO NOT repeat or restate these):");
                 builder.AppendLine(previous);
             }
 
@@ -156,7 +156,8 @@ namespace Whisperer
             builder.AppendLine();
             builder.AppendLine("Response format:");
             builder.AppendLine("- Return only the letter text from Henry W. Akeley.");
-            builder.AppendLine("- Include concrete developments since your previous letter.");
+            builder.AppendLine("- Open with one new concrete development Akeley has not mentioned before: something he has done, found, heard, or decided to finally admit.");
+            builder.AppendLine("- Historical details from earlier correspondence may be referenced only briefly as context, never retold at length.");
             builder.AppendLine("- Begin with a period salutation and end with a period-appropriate signature.");
             builder.AppendLine("- Avoid out-of-character commentary or analysis.");
             lastSystemPrompt = builder.ToString().Trim();

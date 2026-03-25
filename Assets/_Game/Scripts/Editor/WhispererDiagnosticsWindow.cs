@@ -129,6 +129,12 @@ namespace Whisperer.Editor
                 EditorUtility.SetDirty(controller);
             }
 
+            if (GUILayout.Button("Warm Up", GUILayout.Height(24)))
+            {
+                controller.WarmupForDiagnostics();
+                EditorUtility.SetDirty(controller);
+            }
+
             if (GUILayout.Button("Stop Generation", GUILayout.Height(24)))
             {
                 controller.StopGenerationForDiagnostics();
@@ -161,6 +167,9 @@ namespace Whisperer.Editor
             EditorGUILayout.LabelField("Model", model);
             EditorGUILayout.LabelField("Chat Messages", chatMessages.ToString());
             EditorGUILayout.LabelField("Paused", controller.DiagnosticsIsPaused.ToString());
+            EditorGUILayout.LabelField("Warmup In Flight", controller.DiagnosticsIsWarmupInFlight.ToString());
+            EditorGUILayout.LabelField("Warmup Complete", controller.DiagnosticsHasWarmupCompleted.ToString());
+            EditorGUILayout.LabelField("Warmup Status", controller.DiagnosticsLastWarmupStatus);
             EditorGUILayout.LabelField("In Flight", controller.DiagnosticsIsRequestInFlight.ToString());
             EditorGUILayout.LabelField("Fallback Used", controller.DiagnosticsLastFallbackUsed.ToString());
             EditorGUILayout.LabelField("Last Generation (ms)", controller.DiagnosticsLastGenerationMs.ToString());

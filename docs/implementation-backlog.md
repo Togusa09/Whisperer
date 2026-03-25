@@ -23,165 +23,12 @@ Goal: Add Vermont + scholarly context and in-universe source handling.
 ### Milestone D - Consistency and Tools
 Goal: Add contradiction checks and creator-facing debugging utilities.
 
-## Prioritized Backlog
+Completed items (1-11) are tracked in: [docs/implementation-completed.md](docs/implementation-completed.md)
 
-## P0
 
-Status Summary:
-- 1) Time Manager service: Completed
-- 2) Letter composition UI: Completed
-- 3) Prompt assembly pipeline: Completed
-- 4) Story event ledger: Completed
-
-### 1) Time Manager service
-Priority: P0
-Effort: M
-Dependencies: none
-Status: Completed
-Description:
-- Add a central time service for turn/date progression.
-- Track player-send date and LLM-reply date (mid-month).
-- Expose current timeline state to prompt and retrieval logic.
-Acceptance Criteria:
-- Sending a letter increments turn and advances date by one month.
-- Reply date is always computed as mid-month from send month.
-- Date state is exposed cleanly so a later save/load system can persist and restore it.
-
-### 2) Letter composition UI (replace placeholder chat input)
-Priority: P0
-Effort: M
-Dependencies: 1
-Status: Completed
-Description:
-- Replace sample-like message UI with a letter template.
-- Prefill To, From, Date, and opening/closing sections.
-- Keep user focus on body content.
-Acceptance Criteria:
-- Player can compose only letter body in normal mode.
-- Prefilled fields render correctly for each turn.
-- Sent letter and received letter are viewable in sequence.
-
-### 3) Prompt assembly pipeline
-Priority: P0
-Effort: M
-Dependencies: 1, 2
-Status: Completed
-Description:
-- Build runtime prompt from components:
-  - role/persona
-  - timeline state
-  - last letter summary
-  - retrieved context (when available)
-- Keep prompt source modular for tuning.
-Acceptance Criteria:
-- Prompt output includes role framing and date context each turn.
-- Prompt includes explicit chronology and 1930 cutoff constraints.
-- Prompt can be inspected in debug mode.
-
-### 4) Story event ledger
-Priority: P0
-Effort: M
-Dependencies: 1, 3
-Status: Completed
-Description:
-- Record canonical events by date range.
-- Track generated events that occurred between letters.
-- Enable retrieval and contradiction checks against ledger.
-Acceptance Criteria:
-- Ledger entries can be queried by date window.
-- Turn output stores newly asserted events.
-- Future events are not injected before valid date.
-
-## P1
-
-### 5) Chronology-aware RAG ingestion schema
-Priority: P1
-Effort: M
-Dependencies: 4
-Status: Completed
-Description:
-- Define chunk metadata:
-  - sourceType (canon/local/scholarly/in-universe)
-  - validFrom / validTo
-  - reliability
-  - tags
-Acceptance Criteria:
-- Ingested chunks include required metadata fields.
-- Missing metadata is rejected or defaulted with warning.
-
-### 6) Retrieval pipeline v1
-Priority: P1
-Effort: M
-Dependencies: 5
-Status: Completed
-Description:
-- Retrieval stages:
-  - date filter
-  - source-type filter
-  - ranking/weighting
-- Initial weighting recommendation:
-  - canon > local context > scholarly > speculative
-Acceptance Criteria:
-- Retrieved set never contains invalid future-dated chunks.
-- Retrieval returns metadata trace in debug mode.
-
-### 7) In-universe source handling
-Priority: P1
-Effort: S
-Dependencies: 5, 6
-Status: Completed
-Description:
-- Support references that are fictional in reality but real in-universe.
-- Tag these sources and control how confidently they are presented.
-Acceptance Criteria:
-- Necronomicon-style references can be retrieved when relevant.
-- Output style reflects in-universe framing without modern disclaimers.
-
-### 8) Letter archive and timeline browser
-Priority: P1
-Effort: S
-Dependencies: 1, 2
-Status: Completed
-Description:
-- Add read-only browser for prior sent/received letters and dates.
-Acceptance Criteria:
-- Player can open previous turns and inspect letter history.
-- Archive order aligns with time manager turn index.
+## Active Items
 
 ## P2
-
-### 9) Consistency validator
-Priority: P2
-Effort: M
-Dependencies: 4, 6
-Status: Completed
-Description:
-- Check draft reply assertions against ledger and chronology.
-- Flag contradictions and force fallback generation path.
-Acceptance Criteria:
-- Contradictory outputs are detected and logged.
-- Fallback output avoids introducing contradiction.
-
-### 10) Authoring tools for content packs
-Priority: P2
-Effort: M
-Dependencies: 5
-Status: Completed
-Description:
-- Build editor tooling for importing/tagging event and lore chunks.
-Acceptance Criteria:
-- Non-programmer workflow exists for adding/updating source material.
-- Validation catches malformed dates and missing source tags.
-
-### 11) Diagnostics panel
-Priority: P2
-Effort: S
-Dependencies: 3, 6
-Status: Completed
-Description:
-- Show: built prompt sections, retrieved chunks, and timing.
-Acceptance Criteria:
-- One-click per-turn trace shows why output was generated.
 
 ### 21) Optional: Expand historical context detection for weather queries
 Priority: P2
@@ -327,12 +174,13 @@ Acceptance Criteria:
 
 ## Suggested Build Order
 
-1. 1 -> 2 -> 3
-2. 4
-3. 5 -> 6
-4. 7 -> 8 -> 12
-5. 9 -> 10 -> 11
-6. 13 -> 14 -> 15 -> 16 -> 17 -> 18
+1. 12 -> 13
+2. 30 (optional, after drag interactions)
+3. 14 -> 15 -> 17
+4. 16
+5. 18 -> 19 -> 20
+6. 21 (optional) -> 26
+7. 27 -> 28 -> 29
 
 ## Definition of Done (Feature)
 
@@ -450,3 +298,21 @@ Acceptance Criteria:
 Notes:
 - This is primarily a UX and immersion layer over async message orchestration.
 - Coordinate with animation/sound delivery cues for believable mailbox and telegraph arrivals.
+
+### 30) Optional: Allow sending pictures to player
+Priority: P4
+Effort: M
+Dependencies: 2, 8, 10, 13
+Status: Optional
+Plan: [docs/implementation plan/p4-30-send-pictures-to-player.md](docs/implementation%20plan/p4-30-send-pictures-to-player.md)
+Description:
+- Support image attachments in received correspondence when story events require visual evidence.
+- Attachments can represent photographs, sketches, clippings, or documents that Akeley sends.
+- Keep this optional so narrative pacing remains letter-first by default.
+Acceptance Criteria:
+- At least one authored correspondence event can include a picture attachment.
+- Player can open attachment from the received-letter flow and from archive history.
+- Letters without attachments behave exactly as before.
+Notes:
+- This feature is primarily for immersion and should be used selectively.
+- Attachments should remain timeline-consistent and period-appropriate.

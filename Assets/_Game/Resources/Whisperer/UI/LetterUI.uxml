@@ -20,6 +20,10 @@
                     </ui:VisualElement>
                     <ui:Label name="ComposerTitle" text="Your Reply" class="section-title" />
                     <ui:Label name="ComposerHint" text="Compose Wilmarth's monthly response with period-appropriate detail." class="section-hint" />
+                    <ui:VisualElement name="ComposerNotificationPanel" class="composer-notification-panel" style="display: none;">
+                        <ui:Label name="ComposerNotificationLabel" text="Letter in transit while Akeley prepares his reply..." class="composer-notification-label" />
+                        <ui:Button name="ComposerNotificationButton" text="Open Akeley's Reply" class="composer-notification-button" />
+                    </ui:VisualElement>
                     <ui:TextField name="BodyField" multiline="true" class="body-field" />
                     <ui:VisualElement name="ActionRow" class="action-row">
                         <ui:Button name="SendButton" text="Send Letter" class="send-button" />
@@ -45,6 +49,7 @@
                 </ui:VisualElement>
                 <ui:VisualElement name="DiagnosticsActions" class="diagnostics-actions">
                     <ui:Button name="RefreshDiagnosticsButton" text="Refresh" class="diagnostics-button" />
+                    <ui:Button name="WarmupModelButton" text="Warm Up" class="diagnostics-button" />
                     <ui:Button name="PauseModelButton" text="Pause LLM" class="diagnostics-button" />
                     <ui:Button name="StopGenerationButton" text="Stop" class="diagnostics-button" />
                     <ui:Button name="ClearContextButton" text="Clear Context" class="diagnostics-button" />
