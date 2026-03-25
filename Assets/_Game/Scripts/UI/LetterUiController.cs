@@ -468,6 +468,7 @@ namespace Whisperer
                 if (consistencyValidator != null)
                 {
                     StoryConsistencyValidator.ValidationResult validation = consistencyValidator.ValidateDraft(
+                        sendDate,
                         replyDate,
                         timeManager.knowledgeCutoffYear,
                         candidateReply,
@@ -513,7 +514,12 @@ namespace Whisperer
 
         void ToggleLlmPaused()
         {
-            llmPaused = !llmPaused;
+            SetLlmPausedState(!llmPaused, llmPaused ? "LLM resumed." : "LLM paused.");
+        }
+
+        void SetLlmPausedState(bool paused, string statusText)
+        {
+            llmPaused = paused;
             if (pauseModelButton != null)
             {
                 pauseModelButton.text = llmPaused ? "Resume LLM" : "Pause LLM";
@@ -526,7 +532,7 @@ namespace Whisperer
 
             if (statusLabel != null)
             {
-                statusLabel.text = llmPaused ? "LLM paused." : "LLM resumed.";
+                statusLabel.text = statusText;
             }
 
             RefreshDiagnostics(true);
@@ -676,6 +682,32 @@ namespace Whisperer
         public int ArchiveTurnCountForTests => turnArchive.Count;
 
         public string ArchiveDetailTextForTests => archiveDetailLabel?.text ?? "";
+
+        public bool DiagnosticsIsPaused => llmPaused;
+        public bool DiagnosticsIsRequestInFlight => requestInFlight;
+        public bool DiagnosticsLastFallbackUsed => lastFallbackUsed;
+        public long DiagnosticsLastGenerationMs => lastGenerationMs;
+        public int DiagnosticsLastPromptChars => lastPromptChars;
+        public int DiagnosticsLastResponseChars => lastResponseChars;
+        public string DiagnosticsLastSystemPrompt => lastSystemPromptSent;
+        public string DiagnosticsLastUserPrompt => lastUserPromptSent;
+        public string DiagnosticsLastResponse => lastAssistantLetter;
+        public string DiagnosticsLastValidationReport => consistencyValidator != null ? consistencyValidator.LastReport : lastValidationReport;
+
+        public void SetLlmPausedForDiagnostics(bool paused)
+        {
+            SetLlmPausedState(paused, paused ? "LLM paused." : "LLM resumed.");
+        }
+
+        public void StopGenerationForDiagnostics()
+        {
+            StopGeneration();
+        }
+
+        public void ClearContextForDiagnostics()
+        {
+            ClearModelContext();
+        }
 
         void UpdateReceivedLetterView(DateTime replyDate, string letterContent)
         {

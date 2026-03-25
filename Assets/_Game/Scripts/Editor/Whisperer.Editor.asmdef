@@ -1,0 +1,12 @@
+{
+    "name": "Whisperer.Editor",
+    "references": [
+        "Whisperer.Core",
+        "Whisperer.Prompting",
+        "Whisperer.UI",
+        "undream.llmunity.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ]
+}

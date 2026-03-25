@@ -16,10 +16,11 @@ namespace Whisperer
 
         static readonly Regex YearRegex = new Regex(@"\b(1[89]\d{2}|20\d{2})\b", RegexOptions.Compiled);
         static readonly Regex MonthYearRegex = new Regex(@"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(1[89]\d{2}|20\d{2})\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        static readonly Regex PresentDateCueRegex = new Regex(@"\b(today|the date is|it is|it was|as of today|at present|this morning|this evening|this afternoon|now)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         public string LastReport => lastReport;
 
-        public ValidationResult ValidateDraft(DateTime replyDate, int knowledgeCutoffYear, string draft, StoryEventLedger ledger)
+        public ValidationResult ValidateDraft(DateTime sendDate, DateTime replyDate, int knowledgeCutoffYear, string draft, StoryEventLedger ledger)
         {
             List<string> issues = new List<string>();
 
@@ -31,6 +32,7 @@ namespace Whisperer
 
             ValidateYearConstraints(replyDate, knowledgeCutoffYear, draft, issues);
             ValidateFutureMonthReferences(replyDate, draft, issues);
+            ValidatePresentDateReferences(sendDate, replyDate, draft, issues);
             ValidateFutureLedgerLeakage(replyDate, draft, ledger, issues);
             ValidateGeneratedLetterContradictions(replyDate, draft, ledger, issues);
 
@@ -94,6 +96,49 @@ namespace Whisperer
                     issues.Add($"References future month '{monthText} {year}'.");
                 }
             }
+        }
+
+        static void ValidatePresentDateReferences(DateTime sendDate, DateTime replyDate, string draft, List<string> issues)
+        {
+            if (sendDate.Date == replyDate.Date) return;
+
+            string lowered = draft.ToLowerInvariant();
+            if (!PresentDateCueRegex.IsMatch(lowered)) return;
+
+            string sendMonthName = sendDate.ToString("MMMM", CultureInfo.InvariantCulture);
+            string replyMonthName = replyDate.ToString("MMMM", CultureInfo.InvariantCulture);
+            bool mentionsSendDate = ContainsDateReference(lowered, sendMonthName, sendDate.Day, sendDate.Year);
+            bool mentionsReplyDate = ContainsDateReference(lowered, replyMonthName, replyDate.Day, replyDate.Year);
+
+            if (mentionsSendDate && !mentionsReplyDate)
+            {
+                issues.Add($"Uses the player's send date {sendMonthName} {sendDate.Day}, {sendDate.Year} as the apparent present date instead of the reply context date {replyMonthName} {replyDate.Day}, {replyDate.Year}.");
+            }
+        }
+
+        static bool ContainsDateReference(string loweredDraft, string monthName, int day, int year)
+        {
+            string loweredMonth = monthName.ToLowerInvariant();
+            string ordinalDay = GetOrdinalDay(day);
+
+            return loweredDraft.Contains($"{loweredMonth} {day}")
+                || loweredDraft.Contains($"{loweredMonth} {ordinalDay}")
+                || loweredDraft.Contains($"{loweredMonth} {day}, {year}")
+                || loweredDraft.Contains($"{loweredMonth} {ordinalDay}, {year}");
+        }
+
+        static string GetOrdinalDay(int day)
+        {
+            int mod100 = day % 100;
+            if (mod100 is 11 or 12 or 13) return $"{day}th";
+
+            return (day % 10) switch
+            {
+                1 => $"{day}st",
+                2 => $"{day}nd",
+                3 => $"{day}rd",
+                _ => $"{day}th"
+            };
         }
 
         static void ValidateFutureLedgerLeakage(DateTime replyDate, string draft, StoryEventLedger ledger, List<string> issues)

@@ -76,6 +76,8 @@ namespace Whisperer
             builder.AppendLine("Hard rules:");
             builder.AppendLine("- The player writes at the start of the month.");
             builder.AppendLine("- You reply in the context of mid-month of that same month.");
+            builder.AppendLine("- Treat the player's date as the date on the received letter, not as your present moment.");
+            builder.AppendLine("- If you mention today, the date, this morning, this evening, or the present moment, use your reply context date, not the player's send date.");
             builder.AppendLine("- Do not reference future narrative events beyond the current timeline.");
             builder.AppendLine($"- Do not use real-world knowledge after {timeManager.knowledgeCutoffYear}.");
             builder.AppendLine("- You may speculate only using period-appropriate ideas available by 1930.");
@@ -86,6 +88,12 @@ namespace Whisperer
             builder.AppendLine($"- Player send date: {timeManager.FormatDate(sendDate)}");
             builder.AppendLine($"- Your reply context date: {timeManager.FormatDate(replyDate)}");
             builder.AppendLine($"- Current turn index: {timeManager.CurrentTurn + 1}");
+            builder.AppendLine();
+            builder.AppendLine("Temporal parsing rules:");
+            builder.AppendLine($"- Albert's letter was written on {timeManager.FormatDate(sendDate)}.");
+            builder.AppendLine($"- You are writing your reply on {timeManager.FormatDate(replyDate)}.");
+            builder.AppendLine("- If Albert asks what day it is now, answer with your reply context date.");
+            builder.AppendLine("- Mention the player's send date only when referring to when his letter was written or received.");
             builder.AppendLine();
             builder.AppendLine("Relationship state (MVP simulation):");
             builder.AppendLine($"- Stability: {currentAkeleySanity}/100 ({DescribeSanityState(currentAkeleySanity)})");
@@ -167,12 +175,20 @@ namespace Whisperer
             }
 
             DateTime sendDate = timeManager.GetSendDate();
+            DateTime replyDate = timeManager.GetReplyDate();
 
             StringBuilder builder = new StringBuilder();
+            builder.AppendLine("Incoming correspondence metadata:");
+            builder.AppendLine($"- Letter writer: Albert N. Wilmarth");
+            builder.AppendLine($"- Letter written date: {timeManager.FormatDate(sendDate)}");
+            builder.AppendLine($"- Your current reply date: {timeManager.FormatDate(replyDate)}");
+            builder.AppendLine("- Use the reply date for any reference to today or the current date.");
+            builder.AppendLine();
             builder.AppendLine($"Letter from Albert N. Wilmarth dated {timeManager.FormatDate(sendDate)}:");
             builder.AppendLine(playerBody.Trim());
             builder.AppendLine();
             builder.AppendLine("Reply as Henry W. Akeley in letter form.");
+            builder.AppendLine("Your present moment is the reply date above, not the date on Wilmarth's letter.");
             lastUserPrompt = builder.ToString().Trim();
 
             if (debugLogPrompts)
@@ -203,6 +219,7 @@ namespace Whisperer
                 builder.AppendLine(prior);
             }
             builder.AppendLine("- Rewrite the full reply so it is timeline-consistent and does not contradict prior established events.");
+            builder.AppendLine("- Ensure any mention of the present date uses Akeley's reply context date, not Wilmarth's send date.");
             builder.AppendLine("- Return only the corrected letter text.");
 
             string fallbackPrompt = builder.ToString().Trim();
