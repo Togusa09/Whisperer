@@ -183,6 +183,37 @@ namespace Whisperer
             return lastUserPrompt;
         }
 
+        public string BuildConsistencyFallbackPrompt(GameTimeManager timeManager, string playerBody, string previousDraft, string validationReport)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.AppendLine(BuildUserTurnPrompt(timeManager, playerBody));
+            builder.AppendLine();
+            builder.AppendLine("Consistency correction request:");
+            builder.AppendLine("- Your previous draft may conflict with established chronology or prior letters.");
+            if (!string.IsNullOrWhiteSpace(validationReport))
+            {
+                builder.AppendLine("- Validation report:");
+                builder.AppendLine(validationReport.Trim());
+            }
+            if (!string.IsNullOrWhiteSpace(previousDraft))
+            {
+                string prior = previousDraft.Trim();
+                if (prior.Length > 700) prior = prior.Substring(0, 700);
+                builder.AppendLine("- Previous draft excerpt:");
+                builder.AppendLine(prior);
+            }
+            builder.AppendLine("- Rewrite the full reply so it is timeline-consistent and does not contradict prior established events.");
+            builder.AppendLine("- Return only the corrected letter text.");
+
+            string fallbackPrompt = builder.ToString().Trim();
+            if (debugLogPrompts)
+            {
+                Debug.Log($"[Whisperer] Consistency fallback prompt built:\n{fallbackPrompt}");
+            }
+
+            return fallbackPrompt;
+        }
+
         string BuildRetrievalContext(DateTime replyDate)
         {
             if (!useRetrievalPipeline)

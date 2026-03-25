@@ -154,6 +154,7 @@ Acceptance Criteria:
 Priority: P2
 Effort: M
 Dependencies: 4, 6
+Status: Completed
 Description:
 - Check draft reply assertions against ledger and chronology.
 - Flag contradictions and force fallback generation path.
@@ -175,6 +176,7 @@ Acceptance Criteria:
 Priority: P2
 Effort: S
 Dependencies: 3, 6
+Status: In Progress
 Description:
 - Show: built prompt sections, retrieved chunks, and timing.
 Acceptance Criteria:
@@ -285,7 +287,7 @@ Acceptance Criteria:
 - Branch outcomes are deterministic given timeline and meter state.
 - Archive/history view can show key relationship-state milestones.
 
-### 18) Endgame: Invitation to Akeley's house
+### 20) Endgame: Invitation to Akeley's house
 Priority: P3
 Effort: L
 Dependencies: 1, 4, 6

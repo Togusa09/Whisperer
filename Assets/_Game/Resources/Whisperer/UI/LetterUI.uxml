@@ -5,6 +5,7 @@
             <ui:VisualElement name="HeaderSection" class="header-section">
                 <ui:Label name="EyebrowLabel" text="Whisperer Correspondence" class="eyebrow" />
                 <ui:Label name="TurnLabel" text="Turn 1" class="turn-label" />
+                <ui:Button name="OpenDiagnosticsButton" text="Diagnostics" class="open-diagnostics-button" />
             </ui:VisualElement>
             <ui:VisualElement name="BodySection" class="body-section">
                 <ui:VisualElement name="ComposerColumn" class="composer-column">
@@ -35,6 +36,30 @@
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
+
+        <ui:VisualElement name="DiagnosticsOverlay" class="diagnostics-overlay" style="display: none;">
+            <ui:VisualElement name="DiagnosticsPanel" class="diagnostics-panel">
+                <ui:VisualElement name="DiagnosticsHeader" class="popup-header">
+                    <ui:Label name="DiagnosticsTitle" text="Diagnostics" class="popup-title" />
+                    <ui:Button name="DiagnosticsCloseButton" text="✕" class="popup-close-button" />
+                </ui:VisualElement>
+                <ui:VisualElement name="DiagnosticsActions" class="diagnostics-actions">
+                    <ui:Button name="RefreshDiagnosticsButton" text="Refresh" class="diagnostics-button" />
+                    <ui:Button name="PauseModelButton" text="Pause LLM" class="diagnostics-button" />
+                    <ui:Button name="StopGenerationButton" text="Stop" class="diagnostics-button" />
+                    <ui:Button name="ClearContextButton" text="Clear Context" class="diagnostics-button" />
+                </ui:VisualElement>
+                <ui:ScrollView name="DiagnosticsView" class="diagnostics-view" mode="Vertical">
+                    <ui:Label name="DiagnosticsSummaryLabel" text="Summary: n/a" class="diagnostics-line" />
+                    <ui:Label name="DiagnosticsModelLabel" text="Model: n/a" class="diagnostics-line" />
+                    <ui:Label name="DiagnosticsResourceLabel" text="Resources: n/a" class="diagnostics-line" />
+                    <ui:Label name="DiagnosticsPromptLabel" text="Last prompt: n/a" class="diagnostics-block" />
+                    <ui:Label name="DiagnosticsResponseLabel" text="Last response: n/a" class="diagnostics-block" />
+                    <ui:Label name="DiagnosticsValidationLabel" text="Consistency: n/a" class="diagnostics-block" />
+                </ui:ScrollView>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
         <ui:VisualElement name="LetterPopupOverlay" class="letter-popup-overlay" style="display: none;">
             <ui:VisualElement name="LetterPopupPanel" class="letter-popup-panel">
                 <ui:VisualElement name="PopupHeader" class="popup-header">

@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using LLMUnity;
 using UnityEngine;
+using UnityEngine.Profiling;
 using UnityEngine.UIElements;
 
 namespace Whisperer
@@ -78,6 +79,7 @@ namespace Whisperer
         public GameTimeManager timeManager;
         public StoryEventLedger storyEventLedger;
         public LetterPromptBuilder letterPromptBuilder;
+        public StoryConsistencyValidator consistencyValidator;
         public PanelSettings panelSettingsAsset;
 
         [Header("Template")]
@@ -101,6 +103,19 @@ namespace Whisperer
         ScrollView archiveListView;
         ScrollView archiveDetailView;
         Label archiveDetailLabel;
+        Label diagnosticsSummaryLabel;
+        Label diagnosticsModelLabel;
+        Label diagnosticsResourceLabel;
+        Label diagnosticsPromptLabel;
+        Label diagnosticsResponseLabel;
+        Label diagnosticsValidationLabel;
+        Button refreshDiagnosticsButton;
+        Button pauseModelButton;
+        Button stopGenerationButton;
+        Button clearContextButton;
+        Button openDiagnosticsButton;
+        Button diagnosticsCloseButton;
+        VisualElement diagnosticsOverlay;
         VisualElement letterPopupOverlay;
         Label popupLetterContent;
         Button popupCloseButton;
@@ -113,6 +128,15 @@ namespace Whisperer
         readonly List<TurnArchiveRecord> turnArchive = new List<TurnArchiveRecord>();
         int akeleySanity = 70;
         int akeleyTrust = 50;
+        bool llmPaused;
+        float nextDiagnosticsRefreshTime;
+        long lastGenerationMs;
+        int lastPromptChars;
+        int lastResponseChars;
+        bool lastFallbackUsed;
+        string lastValidationReport = "";
+        string lastSystemPromptSent = "";
+        string lastUserPromptSent = "";
 
         void Awake()
         {
@@ -146,10 +170,12 @@ namespace Whisperer
             if (timeManager == null) timeManager = FindAnyObjectByType<GameTimeManager>();
             if (storyEventLedger == null) storyEventLedger = FindAnyObjectByType<StoryEventLedger>();
             if (letterPromptBuilder == null) letterPromptBuilder = FindAnyObjectByType<LetterPromptBuilder>();
+            if (consistencyValidator == null) consistencyValidator = FindAnyObjectByType<StoryConsistencyValidator>();
 
             if (timeManager == null) timeManager = gameObject.AddComponent<GameTimeManager>();
             if (storyEventLedger == null) storyEventLedger = gameObject.AddComponent<StoryEventLedger>();
             if (letterPromptBuilder == null) letterPromptBuilder = gameObject.AddComponent<LetterPromptBuilder>();
+            if (consistencyValidator == null) consistencyValidator = gameObject.AddComponent<StoryConsistencyValidator>();
 
             if (storyEventLedger.seedJson == null)
             {
@@ -198,6 +224,19 @@ namespace Whisperer
             archiveListView = root.Q<ScrollView>("ArchiveListView");
             archiveDetailView = root.Q<ScrollView>("ArchiveDetailView");
             archiveDetailLabel = root.Q<Label>("ArchiveDetailLabel");
+            diagnosticsSummaryLabel = root.Q<Label>("DiagnosticsSummaryLabel");
+            diagnosticsModelLabel = root.Q<Label>("DiagnosticsModelLabel");
+            diagnosticsResourceLabel = root.Q<Label>("DiagnosticsResourceLabel");
+            diagnosticsPromptLabel = root.Q<Label>("DiagnosticsPromptLabel");
+            diagnosticsResponseLabel = root.Q<Label>("DiagnosticsResponseLabel");
+            diagnosticsValidationLabel = root.Q<Label>("DiagnosticsValidationLabel");
+            refreshDiagnosticsButton = root.Q<Button>("RefreshDiagnosticsButton");
+            pauseModelButton = root.Q<Button>("PauseModelButton");
+            stopGenerationButton = root.Q<Button>("StopGenerationButton");
+            clearContextButton = root.Q<Button>("ClearContextButton");
+            openDiagnosticsButton = root.Q<Button>("OpenDiagnosticsButton");
+            diagnosticsCloseButton = root.Q<Button>("DiagnosticsCloseButton");
+            diagnosticsOverlay = root.Q<VisualElement>("DiagnosticsOverlay");
             letterPopupOverlay = root.Q<VisualElement>("LetterPopupOverlay");
             popupLetterContent = root.Q<Label>("PopupLetterContent");
             popupCloseButton = root.Q<Button>("PopupCloseButton");
@@ -218,9 +257,46 @@ namespace Whisperer
                 popupCloseButton.clicked += CloseLetterPopup;
             }
 
+            if (refreshDiagnosticsButton != null)
+            {
+                refreshDiagnosticsButton.clicked += () => RefreshDiagnostics(true);
+            }
+
+            if (pauseModelButton != null)
+            {
+                pauseModelButton.clicked += ToggleLlmPaused;
+                pauseModelButton.text = "Pause LLM";
+            }
+
+            if (stopGenerationButton != null)
+            {
+                stopGenerationButton.clicked += StopGeneration;
+            }
+
+            if (clearContextButton != null)
+            {
+                clearContextButton.clicked += ClearModelContext;
+            }
+
+            if (openDiagnosticsButton != null)
+            {
+                openDiagnosticsButton.clicked += ShowDiagnosticsDialog;
+            }
+
+            if (diagnosticsCloseButton != null)
+            {
+                diagnosticsCloseButton.clicked += CloseDiagnosticsDialog;
+            }
+
+            if (diagnosticsOverlay != null)
+            {
+                diagnosticsOverlay.style.display = DisplayStyle.None;
+            }
+
             uiBuilt = true;
             InitializeWithSeedCorrespondence();
             RefreshArchiveUi();
+            RefreshDiagnostics(true);
         }
 
         void EnsureUiBuilt()
@@ -245,6 +321,12 @@ namespace Whisperer
             {
                 uiBuilt = false;
                 EnsureUiBuilt();
+            }
+
+            if (Time.unscaledTime >= nextDiagnosticsRefreshTime)
+            {
+                RefreshDiagnostics(false);
+                nextDiagnosticsRefreshTime = Time.unscaledTime + 1f;
             }
         }
 
@@ -326,6 +408,11 @@ namespace Whisperer
         async Task SendTurnInternal(string bodyOverride)
         {
             if (requestInFlight) return;
+            if (llmPaused)
+            {
+                if (statusLabel != null) statusLabel.text = "LLM is paused.";
+                return;
+            }
 
             LetterModelClient activeModelClient = ResolveModelClient();
             if (activeModelClient == null)
@@ -364,13 +451,43 @@ namespace Whisperer
 
             string systemPrompt = letterPromptBuilder.BuildSystemPrompt(timeManager, lastAssistantLetter);
             string userPrompt = letterPromptBuilder.BuildUserTurnPrompt(timeManager, body);
+            lastSystemPromptSent = systemPrompt;
+            lastUserPromptSent = userPrompt;
+            lastPromptChars = (systemPrompt?.Length ?? 0) + (userPrompt?.Length ?? 0);
+            long generationStartTicks = DateTime.UtcNow.Ticks;
+            lastFallbackUsed = false;
+            lastValidationReport = "Validation not run.";
 
             try
             {
                 if (statusLabel != null) statusLabel.text = "Receiving reply...";
 
                 string assistantReply = await activeModelClient.GenerateReply(systemPrompt, userPrompt, _ => { });
-                lastAssistantLetter = assistantReply?.Trim() ?? "";
+                string candidateReply = assistantReply?.Trim() ?? "";
+
+                if (consistencyValidator != null)
+                {
+                    StoryConsistencyValidator.ValidationResult validation = consistencyValidator.ValidateDraft(
+                        replyDate,
+                        timeManager.knowledgeCutoffYear,
+                        candidateReply,
+                        storyEventLedger);
+
+                    if (!validation.isConsistent)
+                    {
+                        lastFallbackUsed = true;
+                        if (statusLabel != null) statusLabel.text = "Consistency check failed, generating corrected draft...";
+                        string fallbackPrompt = letterPromptBuilder.BuildConsistencyFallbackPrompt(timeManager, body, candidateReply, validation.report);
+                        string correctedReply = await activeModelClient.GenerateReply(systemPrompt, fallbackPrompt, _ => { });
+                        candidateReply = correctedReply?.Trim() ?? candidateReply;
+                    }
+
+                    lastValidationReport = validation.report;
+                }
+
+                lastAssistantLetter = candidateReply;
+                lastResponseChars = lastAssistantLetter.Length;
+                lastGenerationMs = (DateTime.UtcNow.Ticks - generationStartTicks) / TimeSpan.TicksPerMillisecond;
                 UpdateReceivedLetterView(replyDate, lastAssistantLetter);
                 storyEventLedger.RecordGeneratedLetter(replyDate, lastAssistantLetter);
                 RecordArchiveTurn(sendDate, replyDate, playerLetter, lastAssistantLetter);
@@ -378,17 +495,156 @@ namespace Whisperer
 
                 if (bodyField != null) bodyField.value = "My dear Mr. Akeley,\n\n";
                 RefreshTemplateHeader();
+                RefreshDiagnostics(true);
                 if (statusLabel != null) statusLabel.text = "Reply received.";
             }
             catch (Exception ex)
             {
+                lastValidationReport = $"Generation failed: {ex.Message}";
+                RefreshDiagnostics(true);
                 if (statusLabel != null) statusLabel.text = $"Turn failed: {ex.Message}";
             }
             finally
             {
                 requestInFlight = false;
-                sendButton?.SetEnabled(true);
+                sendButton?.SetEnabled(!llmPaused);
             }
+        }
+
+        void ToggleLlmPaused()
+        {
+            llmPaused = !llmPaused;
+            if (pauseModelButton != null)
+            {
+                pauseModelButton.text = llmPaused ? "Resume LLM" : "Pause LLM";
+            }
+
+            if (!requestInFlight)
+            {
+                sendButton?.SetEnabled(!llmPaused);
+            }
+
+            if (statusLabel != null)
+            {
+                statusLabel.text = llmPaused ? "LLM paused." : "LLM resumed.";
+            }
+
+            RefreshDiagnostics(true);
+        }
+
+        void StopGeneration()
+        {
+            llmAgent?.CancelRequests();
+            if (statusLabel != null)
+            {
+                statusLabel.text = "Stop requested.";
+            }
+
+            RefreshDiagnostics(true);
+        }
+
+        void ShowDiagnosticsDialog()
+        {
+            if (diagnosticsOverlay == null) return;
+            diagnosticsOverlay.style.display = DisplayStyle.Flex;
+            RefreshDiagnostics(true);
+        }
+
+        void CloseDiagnosticsDialog()
+        {
+            if (diagnosticsOverlay == null) return;
+            diagnosticsOverlay.style.display = DisplayStyle.None;
+        }
+
+        void ClearModelContext()
+        {
+            int before = 0;
+            int after = 0;
+
+            if (llmAgent != null && llmAgent.chat != null)
+            {
+                before = llmAgent.chat.Count;
+                if (before > 0)
+                {
+                    var firstMessage = llmAgent.chat[0];
+                    llmAgent.chat.Clear();
+                    llmAgent.chat.Add(firstMessage);
+                }
+                else
+                {
+                    llmAgent.chat.Clear();
+                }
+
+                after = llmAgent.chat.Count;
+            }
+
+            if (statusLabel != null)
+            {
+                statusLabel.text = $"Model context cleared ({before} -> {after} messages).";
+            }
+
+            RefreshDiagnostics(true);
+        }
+
+        void RefreshDiagnostics(bool includeVerbose)
+        {
+            string modelName = llmAgent != null && llmAgent.llm != null ? llmAgent.llm.model : "not configured";
+            int chatCount = llmAgent != null && llmAgent.chat != null ? llmAgent.chat.Count : 0;
+            long managedBytes = GC.GetTotalMemory(false);
+            long monoBytes = Profiler.GetMonoUsedSizeLong();
+            long totalAllocatedBytes = Profiler.GetTotalAllocatedMemoryLong();
+
+            if (diagnosticsSummaryLabel != null)
+            {
+                diagnosticsSummaryLabel.text =
+                    $"Summary: paused={llmPaused}, inFlight={requestInFlight}, fallback={lastFallbackUsed}, genMs={lastGenerationMs}";
+            }
+
+            if (diagnosticsModelLabel != null)
+            {
+                diagnosticsModelLabel.text =
+                    $"Model: {modelName} | chatMessages={chatCount} | promptChars={lastPromptChars} | responseChars={lastResponseChars}";
+            }
+
+            if (diagnosticsResourceLabel != null)
+            {
+                diagnosticsResourceLabel.text =
+                    $"Resources: managed={FormatMegabytes(managedBytes)}MB, mono={FormatMegabytes(monoBytes)}MB, allocated={FormatMegabytes(totalAllocatedBytes)}MB";
+            }
+
+            if (includeVerbose && diagnosticsPromptLabel != null)
+            {
+                string promptPreview =
+                    "SYSTEM:\n" + Truncate(lastSystemPromptSent, 900) +
+                    "\n\nUSER:\n" + Truncate(lastUserPromptSent, 900);
+                diagnosticsPromptLabel.text = "Last prompt:\n" + promptPreview;
+            }
+
+            if (includeVerbose && diagnosticsResponseLabel != null)
+            {
+                diagnosticsResponseLabel.text = "Last response:\n" + Truncate(lastAssistantLetter, 1300);
+            }
+
+            if (diagnosticsValidationLabel != null)
+            {
+                string validationText = consistencyValidator != null
+                    ? consistencyValidator.LastReport
+                    : lastValidationReport;
+                diagnosticsValidationLabel.text = "Consistency:\n" + Truncate(validationText, 1200);
+            }
+        }
+
+        static string FormatMegabytes(long bytes)
+        {
+            double mb = bytes / (1024d * 1024d);
+            return mb.ToString("0.0");
+        }
+
+        static string Truncate(string text, int maxChars)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return "n/a";
+            if (text.Length <= maxChars) return text;
+            return text.Substring(0, maxChars) + "\n...[truncated]";
         }
 
         LetterModelClient ResolveModelClient()

@@ -62,6 +62,22 @@
     margin-bottom: 12px;
 }
 
+.open-diagnostics-button {
+    width: 120px;
+    height: 28px;
+    margin-bottom: 4px;
+    background-color: rgba(99, 79, 53, 0.18);
+    color: rgb(66, 50, 30);
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    border-left-width: 0;
+}
+
 .letter-meta-card {
     background-color: rgba(255, 252, 244, 0.95);
     border-left-width: 4px;
@@ -324,6 +340,107 @@
     border-bottom-right-radius: 9px;
     color: rgb(61, 47, 29);
     font-size: 12px;
+    white-space: normal;
+}
+
+.diagnostics-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 4px;
+    margin-bottom: 6px;
+}
+
+.diagnostics-button {
+    height: 26px;
+    margin-right: 6px;
+    margin-bottom: 6px;
+    padding-left: 10px;
+    padding-right: 10px;
+    background-color: rgba(99, 79, 53, 0.2);
+    color: rgb(66, 50, 30);
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    border-left-width: 0;
+}
+
+.diagnostics-view {
+    flex-grow: 1;
+    min-height: 260px;
+    background-color: rgba(255, 251, 243, 0.9);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    padding-top: 6px;
+    padding-right: 6px;
+    padding-bottom: 6px;
+    padding-left: 6px;
+}
+
+.diagnostics-line {
+    margin-bottom: 4px;
+    color: rgb(64, 48, 29);
+    font-size: 11px;
+    white-space: normal;
+}
+
+.diagnostics-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    justify-content: center;
+    align-items: center;
+    padding-top: 24px;
+    padding-right: 24px;
+    padding-bottom: 24px;
+    padding-left: 24px;
+}
+
+.diagnostics-panel {
+    width: 760px;
+    height: 72%;
+    max-height: 760px;
+    background-color: rgba(247, 241, 225, 0.98);
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-left-width: 2px;
+    border-top-color: rgb(136, 103, 63);
+    border-right-color: rgb(136, 103, 63);
+    border-bottom-color: rgb(136, 103, 63);
+    border-left-color: rgb(136, 103, 63);
+    flex-direction: column;
+    padding-top: 12px;
+    padding-right: 12px;
+    padding-bottom: 12px;
+    padding-left: 12px;
+}
+
+.diagnostics-block {
+    margin-bottom: 6px;
+    padding-top: 6px;
+    padding-right: 6px;
+    padding-bottom: 6px;
+    padding-left: 6px;
+    background-color: rgba(247, 242, 230, 0.95);
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    color: rgb(59, 43, 25);
+    font-size: 11px;
     white-space: normal;
 }
 
