@@ -166,6 +166,7 @@ Acceptance Criteria:
 Priority: P2
 Effort: M
 Dependencies: 5
+Status: Planned
 Description:
 - Build editor tooling for importing/tagging event and lore chunks.
 Acceptance Criteria:
@@ -176,11 +177,25 @@ Acceptance Criteria:
 Priority: P2
 Effort: S
 Dependencies: 3, 6
-Status: In Progress
+Status: Completed
 Description:
 - Show: built prompt sections, retrieved chunks, and timing.
 Acceptance Criteria:
 - One-click per-turn trace shows why output was generated.
+
+### 21) Optional: Expand historical context detection for weather queries
+Priority: P2
+Effort: S
+Dependencies: 3, 6, 11
+Status: Optional
+Description:
+- Expand detection of player historical-weather questions beyond month-based cues.
+- Support relative time phrases such as last week, this week, previous few days, and specific day-range references.
+- Improve intent parsing so weather-history context is injected only when truly relevant.
+Acceptance Criteria:
+- Questions like "What was the weather like last week?" and "Has this week been hot?" reliably trigger appropriate weather-history context.
+- Non-weather questions do not trigger historical weather injection.
+- Debug output shows detected intent and resolved time range for each historical-weather query.
 
 ## P3 - Enhanced UX and Presentation
 
@@ -321,7 +336,7 @@ A feature is done when:
 
 1. Implement consistency validator for contradiction detection and fallback generation (P2 #9).
 2. Build authoring workflow for content packs with validation (P2 #10).
-3. Add diagnostics panel for prompt/retrieval traces (P2 #11).
+3. Extend weather-history intent parsing to support weekly and relative-range phrasing (P2 #21 optional).
 
 ## Future Enhancement Priorities (When Ready)
 

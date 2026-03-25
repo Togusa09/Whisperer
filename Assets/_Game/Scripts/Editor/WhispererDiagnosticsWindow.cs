@@ -141,14 +141,30 @@ namespace Whisperer.Editor
             DrawTextArea("Last System Prompt", controller.DiagnosticsLastSystemPrompt);
             DrawTextArea("Last User Prompt", controller.DiagnosticsLastUserPrompt);
             DrawTextArea("Last Response", controller.DiagnosticsLastResponse);
+            DrawTextArea("Retrieval Trace", controller.DiagnosticsLastRetrievalTrace);
+            DrawTextArea("Source Framing", controller.DiagnosticsLastSourceFraming);
+            DrawTextArea("Weather Context", controller.DiagnosticsLastWeatherContext);
 
             LetterPromptBuilder promptBuilder = controller.letterPromptBuilder != null
                 ? controller.letterPromptBuilder
                 : FindAnyObjectByType<LetterPromptBuilder>();
             if (promptBuilder != null)
             {
-                DrawTextArea("Retrieval Trace", promptBuilder.LastRetrievalTrace);
-                DrawTextArea("Source Framing", promptBuilder.LastSourceFraming);
+                // Keep these as fallbacks if the controller has not populated fields yet.
+                if (string.IsNullOrWhiteSpace(controller.DiagnosticsLastRetrievalTrace))
+                {
+                    DrawTextArea("Retrieval Trace (fallback)", promptBuilder.LastRetrievalTrace);
+                }
+
+                if (string.IsNullOrWhiteSpace(controller.DiagnosticsLastSourceFraming))
+                {
+                    DrawTextArea("Source Framing (fallback)", promptBuilder.LastSourceFraming);
+                }
+
+                if (string.IsNullOrWhiteSpace(controller.DiagnosticsLastWeatherContext))
+                {
+                    DrawTextArea("Weather Context (fallback)", promptBuilder.LastWeatherContext);
+                }
             }
 
             EditorGUILayout.EndScrollView();

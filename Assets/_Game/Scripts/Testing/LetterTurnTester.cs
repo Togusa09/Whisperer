@@ -15,6 +15,7 @@ namespace Whisperer
         public GameTimeManager timeManager;
         public StoryEventLedger storyEventLedger;
         public LetterPromptBuilder letterPromptBuilder;
+        public WeatherDataProvider weatherDataProvider;
 
         [Header("Test input")]
         [TextArea(4, 10)]
@@ -34,10 +35,12 @@ namespace Whisperer
             if (timeManager == null) timeManager = FindAnyObjectByType<GameTimeManager>();
             if (storyEventLedger == null) storyEventLedger = FindAnyObjectByType<StoryEventLedger>();
             if (letterPromptBuilder == null) letterPromptBuilder = FindAnyObjectByType<LetterPromptBuilder>();
+            if (weatherDataProvider == null) weatherDataProvider = FindAnyObjectByType<WeatherDataProvider>();
 
             if (timeManager == null) timeManager = gameObject.AddComponent<GameTimeManager>();
             if (storyEventLedger == null) storyEventLedger = gameObject.AddComponent<StoryEventLedger>();
             if (letterPromptBuilder == null) letterPromptBuilder = gameObject.AddComponent<LetterPromptBuilder>();
+            if (weatherDataProvider == null) weatherDataProvider = gameObject.AddComponent<WeatherDataProvider>();
 
             if (storyEventLedger.seedJson == null)
             {
@@ -45,6 +48,7 @@ namespace Whisperer
             }
             storyEventLedger.EnsureLoaded();
             letterPromptBuilder.storyEventLedger = storyEventLedger;
+            letterPromptBuilder.weatherDataProvider = weatherDataProvider;
         }
 
         void Update()
@@ -97,7 +101,7 @@ namespace Whisperer
             DateTime sendDate = timeManager.GetSendDate();
             DateTime replyDate = timeManager.GetReplyDate();
 
-            llmAgent.systemPrompt = letterPromptBuilder.BuildSystemPrompt(timeManager, lastAssistantLetter);
+            llmAgent.systemPrompt = letterPromptBuilder.BuildSystemPrompt(timeManager, lastAssistantLetter, playerLetterBody);
             string userPrompt = letterPromptBuilder.BuildUserTurnPrompt(timeManager, playerLetterBody);
 
             Debug.Log($"[Whisperer] Running turn {timeManager.CurrentTurn + 1} | Send: {timeManager.FormatDate(sendDate)} | Reply context: {timeManager.FormatDate(replyDate)}");

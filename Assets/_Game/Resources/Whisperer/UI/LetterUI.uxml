@@ -53,6 +53,8 @@
                     <ui:Label name="DiagnosticsSummaryLabel" text="Summary: n/a" class="diagnostics-line" />
                     <ui:Label name="DiagnosticsModelLabel" text="Model: n/a" class="diagnostics-line" />
                     <ui:Label name="DiagnosticsResourceLabel" text="Resources: n/a" class="diagnostics-line" />
+                    <ui:Label name="DiagnosticsRetrievalLabel" text="Retrieval trace: n/a" class="diagnostics-block" />
+                    <ui:Label name="DiagnosticsWeatherLabel" text="Weather context: n/a" class="diagnostics-block" />
                     <ui:Label name="DiagnosticsPromptLabel" text="Last prompt: n/a" class="diagnostics-block" />
                     <ui:Label name="DiagnosticsResponseLabel" text="Last response: n/a" class="diagnostics-block" />
                     <ui:Label name="DiagnosticsValidationLabel" text="Consistency: n/a" class="diagnostics-block" />

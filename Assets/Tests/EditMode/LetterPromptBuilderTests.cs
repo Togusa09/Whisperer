@@ -5,6 +5,11 @@ using Whisperer;
 
 public class LetterPromptBuilderTests
 {
+  const string WeatherCsv = "\"STATION\",\"NAME\",\"DATE\",\"PRCP\",\"TAVG\",\"TMAX\",\"TMIN\"\n"
+    + "\"S1\",\"BELLOWS FALLS, VT US\",\"1928-04-10\",\"3.5\",\"46\",\"58\",\"34\"\n"
+    + "\"S1\",\"BELLOWS FALLS, VT US\",\"1928-05-10\",\"2.0\",\"50\",\"60\",\"40\"\n"
+    + "\"S1\",\"BELLOWS FALLS, VT US\",\"1928-05-15\",\"1.0\",\"52\",\"62\",\"42\"\n";
+
     [Test]
     public void BuildSystemPrompt_IncludesDateAndRulesAndContext()
     {
@@ -101,4 +106,41 @@ public class LetterPromptBuilderTests
         StringAssert.Contains("tentative confidence", prompt);
         UnityEngine.Object.DestroyImmediate(go);
     }
+
+      [Test]
+      public void BuildSystemPrompt_IncludesCurrentWeatherContext_WhenProviderConfigured()
+      {
+        GameObject go = new GameObject("prompt-builder-weather-test");
+        GameTimeManager time = go.AddComponent<GameTimeManager>();
+        LetterPromptBuilder builder = go.AddComponent<LetterPromptBuilder>();
+        WeatherDataProvider weather = go.AddComponent<WeatherDataProvider>();
+
+        weather.weatherCsv = new TextAsset(WeatherCsv);
+        builder.weatherDataProvider = weather;
+
+        string prompt = builder.BuildSystemPrompt(time, "", "I am writing from Townshend and ask about conditions.");
+
+        StringAssert.Contains("Current local weather context (historical proxy):", prompt);
+        StringAssert.Contains("Approximate station:", prompt);
+        UnityEngine.Object.DestroyImmediate(go);
+      }
+
+      [Test]
+      public void BuildSystemPrompt_IncludesHistoricalWeatherBlock_WhenPlayerAsksHistory()
+      {
+        GameObject go = new GameObject("prompt-builder-weather-history-test");
+        GameTimeManager time = go.AddComponent<GameTimeManager>();
+        LetterPromptBuilder builder = go.AddComponent<LetterPromptBuilder>();
+        WeatherDataProvider weather = go.AddComponent<WeatherDataProvider>();
+
+        weather.weatherCsv = new TextAsset(WeatherCsv);
+        builder.weatherDataProvider = weather;
+
+        string historyPrompt = builder.BuildSystemPrompt(time, "", "Do you remember the weather last month near Brattleboro?");
+        StringAssert.Contains("Historical weather recall (optional context):", historyPrompt);
+
+        string nonHistoryPrompt = builder.BuildSystemPrompt(time, "", "I have received your latest warning and remain concerned.");
+        StringAssert.DoesNotContain("Historical weather recall (optional context):", nonHistoryPrompt);
+        UnityEngine.Object.DestroyImmediate(go);
+      }
 }

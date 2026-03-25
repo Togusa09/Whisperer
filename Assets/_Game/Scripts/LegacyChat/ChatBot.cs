@@ -28,6 +28,7 @@ namespace Whisperer
         public GameTimeManager timeManager;
         public StoryEventLedger storyEventLedger;
         public LetterPromptBuilder letterPromptBuilder;
+        public WeatherDataProvider weatherDataProvider;
 
         private InputBubble inputBubble;
         private List<Bubble> chatBubbles = new List<Bubble>();
@@ -73,10 +74,12 @@ namespace Whisperer
             if (timeManager == null) timeManager = FindAnyObjectByType<GameTimeManager>();
             if (storyEventLedger == null) storyEventLedger = FindAnyObjectByType<StoryEventLedger>();
             if (letterPromptBuilder == null) letterPromptBuilder = FindAnyObjectByType<LetterPromptBuilder>();
+            if (weatherDataProvider == null) weatherDataProvider = FindAnyObjectByType<WeatherDataProvider>();
 
             if (timeManager == null) timeManager = gameObject.AddComponent<GameTimeManager>();
             if (storyEventLedger == null) storyEventLedger = gameObject.AddComponent<StoryEventLedger>();
             if (letterPromptBuilder == null) letterPromptBuilder = gameObject.AddComponent<LetterPromptBuilder>();
+            if (weatherDataProvider == null) weatherDataProvider = gameObject.AddComponent<WeatherDataProvider>();
 
             if (storyEventLedger.seedJson == null)
             {
@@ -85,6 +88,7 @@ namespace Whisperer
             storyEventLedger.EnsureLoaded();
 
             letterPromptBuilder.storyEventLedger = storyEventLedger;
+            letterPromptBuilder.weatherDataProvider = weatherDataProvider;
         }
 
         Bubble AddBubble(string message, bool isPlayerMessage)
@@ -124,7 +128,7 @@ namespace Whisperer
 
             if (letterPromptBuilder != null)
             {
-                llmAgent.systemPrompt = letterPromptBuilder.BuildSystemPrompt(timeManager, lastAssistantLetter);
+                llmAgent.systemPrompt = letterPromptBuilder.BuildSystemPrompt(timeManager, lastAssistantLetter, letterBody);
                 modelMessage = letterPromptBuilder.BuildUserTurnPrompt(timeManager, letterBody);
             }
 

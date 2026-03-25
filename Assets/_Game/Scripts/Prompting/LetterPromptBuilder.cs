@@ -8,6 +8,7 @@ namespace Whisperer
     public class LetterPromptBuilder : MonoBehaviour
     {
         public StoryEventLedger storyEventLedger;
+        public WeatherDataProvider weatherDataProvider;
         [Range(1, 20)] public int maxLedgerEntries = 6;
 
         [Header("Retrieval")]
@@ -29,6 +30,8 @@ namespace Whisperer
         [SerializeField] string lastRetrievalTrace = "";
         [TextArea(5, 14)]
         [SerializeField] string lastSourceFraming = "";
+        [TextArea(5, 14)]
+        [SerializeField] string lastWeatherContext = "";
         [Header("Relationship State")]
         [Range(0, 100)] public int currentAkeleySanity = 70;
         [Range(0, 100)] public int currentAkeleyTrust = 50;
@@ -37,6 +40,7 @@ namespace Whisperer
         public string LastUserPrompt => lastUserPrompt;
         public string LastRetrievalTrace => lastRetrievalTrace;
         public string LastSourceFraming => lastSourceFraming;
+        public string LastWeatherContext => lastWeatherContext;
 
         public void SetRelationshipState(int sanity, int trust)
         {
@@ -58,7 +62,7 @@ namespace Whisperer
             return "guarded";
         }
 
-        public string BuildSystemPrompt(GameTimeManager timeManager, string previousAssistantLetter)
+        public string BuildSystemPrompt(GameTimeManager timeManager, string previousAssistantLetter, string currentPlayerLetter = null)
         {
             if (timeManager == null)
             {
@@ -98,6 +102,13 @@ namespace Whisperer
             builder.AppendLine("Relationship state (MVP simulation):");
             builder.AppendLine($"- Stability: {currentAkeleySanity}/100 ({DescribeSanityState(currentAkeleySanity)})");
             builder.AppendLine($"- Trust in Wilmarth: {currentAkeleyTrust}/100 ({DescribeTrustState(currentAkeleyTrust)})");
+
+            string weatherContextBlock = BuildWeatherContext(replyDate, currentPlayerLetter, previousAssistantLetter);
+            if (!string.IsNullOrWhiteSpace(weatherContextBlock))
+            {
+                builder.AppendLine();
+                builder.AppendLine(weatherContextBlock);
+            }
 
             builder.AppendLine();
             builder.AppendLine("Character progression guidance:");
@@ -161,9 +172,54 @@ namespace Whisperer
                 {
                     Debug.Log($"[Whisperer] {lastSourceFraming}");
                 }
+                if (!string.IsNullOrWhiteSpace(lastWeatherContext))
+                {
+                    Debug.Log($"[Whisperer] {lastWeatherContext}");
+                }
             }
 
             return lastSystemPrompt;
+        }
+
+        string BuildWeatherContext(DateTime replyDate, string currentPlayerLetter, string previousAssistantLetter)
+        {
+            if (weatherDataProvider == null)
+            {
+                lastWeatherContext = "";
+                return "";
+            }
+
+            string locationHint = BuildLocationHint(currentPlayerLetter, previousAssistantLetter);
+            StringBuilder builder = new StringBuilder();
+
+            string currentBlock = weatherDataProvider.BuildCurrentWeatherContext(replyDate, locationHint);
+            if (!string.IsNullOrWhiteSpace(currentBlock))
+            {
+                builder.AppendLine(currentBlock.Trim());
+            }
+
+            string historicalBlock = weatherDataProvider.BuildHistoricalWeatherContext(replyDate, currentPlayerLetter, locationHint);
+            if (!string.IsNullOrWhiteSpace(historicalBlock))
+            {
+                if (builder.Length > 0) builder.AppendLine();
+                builder.Append(historicalBlock.Trim());
+            }
+
+            lastWeatherContext = builder.ToString().Trim();
+            return lastWeatherContext;
+        }
+
+        static string BuildLocationHint(string currentPlayerLetter, string previousAssistantLetter)
+        {
+            StringBuilder hint = new StringBuilder();
+            if (!string.IsNullOrWhiteSpace(currentPlayerLetter)) hint.Append(currentPlayerLetter);
+            if (!string.IsNullOrWhiteSpace(previousAssistantLetter))
+            {
+                if (hint.Length > 0) hint.Append(' ');
+                hint.Append(previousAssistantLetter);
+            }
+
+            return hint.ToString();
         }
 
         public string BuildUserTurnPrompt(GameTimeManager timeManager, string playerBody)

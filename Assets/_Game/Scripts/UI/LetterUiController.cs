@@ -79,6 +79,7 @@ namespace Whisperer
         public GameTimeManager timeManager;
         public StoryEventLedger storyEventLedger;
         public LetterPromptBuilder letterPromptBuilder;
+        public WeatherDataProvider weatherDataProvider;
         public StoryConsistencyValidator consistencyValidator;
         public PanelSettings panelSettingsAsset;
 
@@ -106,6 +107,8 @@ namespace Whisperer
         Label diagnosticsSummaryLabel;
         Label diagnosticsModelLabel;
         Label diagnosticsResourceLabel;
+        Label diagnosticsRetrievalLabel;
+        Label diagnosticsWeatherLabel;
         Label diagnosticsPromptLabel;
         Label diagnosticsResponseLabel;
         Label diagnosticsValidationLabel;
@@ -170,11 +173,13 @@ namespace Whisperer
             if (timeManager == null) timeManager = FindAnyObjectByType<GameTimeManager>();
             if (storyEventLedger == null) storyEventLedger = FindAnyObjectByType<StoryEventLedger>();
             if (letterPromptBuilder == null) letterPromptBuilder = FindAnyObjectByType<LetterPromptBuilder>();
+            if (weatherDataProvider == null) weatherDataProvider = FindAnyObjectByType<WeatherDataProvider>();
             if (consistencyValidator == null) consistencyValidator = FindAnyObjectByType<StoryConsistencyValidator>();
 
             if (timeManager == null) timeManager = gameObject.AddComponent<GameTimeManager>();
             if (storyEventLedger == null) storyEventLedger = gameObject.AddComponent<StoryEventLedger>();
             if (letterPromptBuilder == null) letterPromptBuilder = gameObject.AddComponent<LetterPromptBuilder>();
+            if (weatherDataProvider == null) weatherDataProvider = gameObject.AddComponent<WeatherDataProvider>();
             if (consistencyValidator == null) consistencyValidator = gameObject.AddComponent<StoryConsistencyValidator>();
 
             if (storyEventLedger.seedJson == null)
@@ -183,6 +188,7 @@ namespace Whisperer
             }
             storyEventLedger.EnsureLoaded();
             letterPromptBuilder.storyEventLedger = storyEventLedger;
+            letterPromptBuilder.weatherDataProvider = weatherDataProvider;
         }
 
         void BuildUi()
@@ -227,6 +233,8 @@ namespace Whisperer
             diagnosticsSummaryLabel = root.Q<Label>("DiagnosticsSummaryLabel");
             diagnosticsModelLabel = root.Q<Label>("DiagnosticsModelLabel");
             diagnosticsResourceLabel = root.Q<Label>("DiagnosticsResourceLabel");
+            diagnosticsRetrievalLabel = root.Q<Label>("DiagnosticsRetrievalLabel");
+            diagnosticsWeatherLabel = root.Q<Label>("DiagnosticsWeatherLabel");
             diagnosticsPromptLabel = root.Q<Label>("DiagnosticsPromptLabel");
             diagnosticsResponseLabel = root.Q<Label>("DiagnosticsResponseLabel");
             diagnosticsValidationLabel = root.Q<Label>("DiagnosticsValidationLabel");
@@ -449,7 +457,7 @@ namespace Whisperer
                 letterPromptBuilder.SetRelationshipState(akeleySanity, akeleyTrust);
             }
 
-            string systemPrompt = letterPromptBuilder.BuildSystemPrompt(timeManager, lastAssistantLetter);
+            string systemPrompt = letterPromptBuilder.BuildSystemPrompt(timeManager, lastAssistantLetter, body);
             string userPrompt = letterPromptBuilder.BuildUserTurnPrompt(timeManager, body);
             lastSystemPromptSent = systemPrompt;
             lastUserPromptSent = userPrompt;
@@ -618,6 +626,29 @@ namespace Whisperer
                     $"Resources: managed={FormatMegabytes(managedBytes)}MB, mono={FormatMegabytes(monoBytes)}MB, allocated={FormatMegabytes(totalAllocatedBytes)}MB";
             }
 
+            if (diagnosticsRetrievalLabel != null)
+            {
+                string retrievalTrace = letterPromptBuilder != null
+                    ? letterPromptBuilder.LastRetrievalTrace
+                    : "n/a";
+                string sourceFraming = letterPromptBuilder != null
+                    ? letterPromptBuilder.LastSourceFraming
+                    : "n/a";
+                diagnosticsRetrievalLabel.text =
+                    "Retrieval trace:\n" +
+                    Truncate(retrievalTrace, 1000) +
+                    "\n\nSource framing:\n" +
+                    Truncate(sourceFraming, 800);
+            }
+
+            if (diagnosticsWeatherLabel != null)
+            {
+                string weatherContext = letterPromptBuilder != null
+                    ? letterPromptBuilder.LastWeatherContext
+                    : "n/a";
+                diagnosticsWeatherLabel.text = "Weather context:\n" + Truncate(weatherContext, 900);
+            }
+
             if (includeVerbose && diagnosticsPromptLabel != null)
             {
                 string promptPreview =
@@ -693,6 +724,9 @@ namespace Whisperer
         public string DiagnosticsLastUserPrompt => lastUserPromptSent;
         public string DiagnosticsLastResponse => lastAssistantLetter;
         public string DiagnosticsLastValidationReport => consistencyValidator != null ? consistencyValidator.LastReport : lastValidationReport;
+        public string DiagnosticsLastRetrievalTrace => letterPromptBuilder != null ? letterPromptBuilder.LastRetrievalTrace : string.Empty;
+        public string DiagnosticsLastSourceFraming => letterPromptBuilder != null ? letterPromptBuilder.LastSourceFraming : string.Empty;
+        public string DiagnosticsLastWeatherContext => letterPromptBuilder != null ? letterPromptBuilder.LastWeatherContext : string.Empty;
 
         public void SetLlmPausedForDiagnostics(bool paused)
         {
