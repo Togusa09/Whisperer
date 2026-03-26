@@ -28,13 +28,12 @@ namespace Whisperer
         [SerializeField] float deskModeCarryDistance = 0.4f;
         [SerializeField] float deskModeCarryHeight = 0.08f;
 
-        LetterItem carriedItem;
-        DeskPropItem carriedDeskProp;
+        CarriableItem carriedItem;
         bool shouldPlaceOnDeskNextFrame = false;
         DeskModeInteractable lastUsedDeskInteractable;
 
         public bool IsDeskMode => modeSwitcher != null && modeSwitcher.CurrentMode == PlayerMode.Desk;
-        bool HasCarriedItem => carriedItem != null || carriedDeskProp != null;
+        bool HasCarriedItem => carriedItem != null;
 
         Camera ActiveInteractionCamera
         {
@@ -111,9 +110,9 @@ namespace Whisperer
 
         void HandleInteract()
         {
-            if (carriedDeskProp != null)
+            if (carriedItem is DeskPropItem carriedDeskProp)
             {
-                HandleCarriedDeskPropInteract();
+                HandleCarriedDeskPropInteract(carriedDeskProp);
                 return;
             }
 
@@ -154,18 +153,25 @@ namespace Whisperer
                         }
                     }
 
-                    if (carriedItem.CanPickUpAtDesk() || carriedItem.IsOpenedAtDesk)
+                    LetterItem carriedLetter = carriedItem as LetterItem;
+                    if (carriedLetter == null)
+                    {
+                        Debug.LogWarning("PlayerInteractionController: Unsupported carried item cannot be placed at desk.", this);
+                        return;
+                    }
+
+                    if (carriedLetter.CanPickUpAtDesk() || carriedLetter.IsOpenedAtDesk)
                     {
                         if (TryGetDeskPlacementPose(out Vector3 placePosition, out Quaternion placeRotation))
                         {
-                            carriedItem.PlaceAtDesk(placePosition, placeRotation, GetDeskPlacementParent());
+                            carriedLetter.PlaceAtDesk(placePosition, placeRotation, GetDeskPlacementParent());
                             carriedItem = null;
                             return;
                         }
 
                         if (deskLetterAnchor != null)
                         {
-                            carriedItem.PlaceAtDesk(deskLetterAnchor);
+                            carriedLetter.PlaceAtDesk(deskLetterAnchor);
                             carriedItem = null;
                             return;
                         }
@@ -198,12 +204,12 @@ namespace Whisperer
 
                     if (TryGetDeskPlacementPose(out Vector3 letterPosition, out Quaternion letterRotation))
                     {
-                        carriedItem.PlaceAtDesk(letterPosition, letterRotation, GetDeskPlacementParent());
+                        carriedLetter.PlaceAtDesk(letterPosition, letterRotation, GetDeskPlacementParent());
                         carriedItem = null;
                         return;
                     }
 
-                    if (!carriedItem.OpenAtDesk(deskLetterAnchor))
+                    if (!carriedLetter.OpenAtDesk(deskLetterAnchor))
                     {
                         Debug.LogWarning("PlayerInteractionController: Desk letter anchor is missing; cannot open letter at desk.", this);
                         return;
@@ -220,7 +226,7 @@ namespace Whisperer
                 return;
             }
 
-            if (!TryGetInteractionTarget(out LetterItem item, out DeskPropItem deskProp, out StudyInteractable interactable))
+            if (!TryGetInteractionTarget(out CarriableItem item, out StudyInteractable interactable))
             {
                 return;
             }
@@ -233,35 +239,29 @@ namespace Whisperer
                     return;
                 }
 
-                if (!IsDeskMode && item.IsOpenedAtDesk)
+                if (!IsDeskMode && item is LetterItem openedLetter && openedLetter.IsOpenedAtDesk)
                 {
                     return;
                 }
 
-                if (!TryPickUpItem(item) && IsDeskMode && item.IsOpenedAtDesk)
+                if (!TryPickUpItem(item) && IsDeskMode && item is LetterItem placedLetter && placedLetter.IsOpenedAtDesk)
                 {
                     if (TryGetDeskPlacementPose(out Vector3 itemPosition, out Quaternion itemRotation))
                     {
-                        item.PlaceAtDesk(itemPosition, itemRotation, GetDeskPlacementParent());
+                        placedLetter.PlaceAtDesk(itemPosition, itemRotation, GetDeskPlacementParent());
                     }
                     else if (deskLetterAnchor != null)
                     {
-                        item.PlaceAtDesk(deskLetterAnchor);
+                        placedLetter.PlaceAtDesk(deskLetterAnchor);
                     }
                 }
-                return;
-            }
-
-            if (deskProp != null)
-            {
-                TryPickUpDeskProp(deskProp);
                 return;
             }
 
             interactable?.TryInteract(this);
         }
 
-        void HandleCarriedDeskPropInteract()
+        void HandleCarriedDeskPropInteract(DeskPropItem carriedDeskProp)
         {
             if (carriedDeskProp == null)
             {
@@ -273,14 +273,14 @@ namespace Whisperer
                 if (TryGetDeskPlacementPose(out Vector3 worldPosition, out Quaternion worldRotation))
                 {
                     carriedDeskProp.PlaceAtDesk(worldPosition, worldRotation, GetDeskPlacementParent());
-                    carriedDeskProp = null;
+                    carriedItem = null;
                     return;
                 }
 
                 if (deskLetterAnchor != null)
                 {
                     carriedDeskProp.PlaceAtDesk(deskLetterAnchor);
-                    carriedDeskProp = null;
+                    carriedItem = null;
                     return;
                 }
 
@@ -291,13 +291,12 @@ namespace Whisperer
             Camera activeCamera = ActiveInteractionCamera;
             Vector3 dropForward = activeCamera != null ? activeCamera.transform.forward : transform.forward;
             carriedDeskProp.Drop(dropForward);
-            carriedDeskProp = null;
+            carriedItem = null;
         }
 
-        bool TryGetInteractionTarget(out LetterItem item, out DeskPropItem deskProp, out StudyInteractable interactable)
+        bool TryGetInteractionTarget(out CarriableItem item, out StudyInteractable interactable)
         {
             item = null;
-            deskProp = null;
             interactable = null;
 
             Camera activeCamera = ActiveInteractionCamera;
@@ -322,7 +321,7 @@ namespace Whisperer
                     continue;
                 }
 
-                LetterItem hitItem = hits[i].collider.GetComponentInParent<LetterItem>();
+                CarriableItem hitItem = hits[i].collider.GetComponentInParent<CarriableItem>();
                 if (carriedItem != null && hitItem == carriedItem)
                 {
                     continue;
@@ -331,18 +330,6 @@ namespace Whisperer
                 if (hitItem != null)
                 {
                     item = hitItem;
-                    return true;
-                }
-
-                DeskPropItem hitDeskProp = hits[i].collider.GetComponentInParent<DeskPropItem>();
-                if (carriedDeskProp != null && hitDeskProp == carriedDeskProp)
-                {
-                    continue;
-                }
-
-                if (hitDeskProp != null)
-                {
-                    deskProp = hitDeskProp;
                     return true;
                 }
 
@@ -357,7 +344,7 @@ namespace Whisperer
             return false;
         }
 
-        bool TryPickUpItem(LetterItem item)
+        bool TryPickUpItem(CarriableItem item)
         {
             if (item == null || HasCarriedItem)
             {
@@ -371,6 +358,26 @@ namespace Whisperer
                 return false;
             }
 
+            if (item is EnvelopeItem envelope)
+            {
+                return TryPickUpEnvelope(envelope, targetCarryAnchor);
+            }
+
+            if (item is LetterItem letter)
+            {
+                return TryPickUpLetter(letter, targetCarryAnchor);
+            }
+
+            if (item is DeskPropItem deskProp)
+            {
+                return TryPickUpDeskProp(deskProp, targetCarryAnchor);
+            }
+
+            return false;
+        }
+
+        bool TryPickUpLetter(LetterItem item, Transform targetCarryAnchor)
+        {
             if (IsDeskMode)
             {
                 if (!item.PickUpFromDesk(targetCarryAnchor))
@@ -384,7 +391,7 @@ namespace Whisperer
             }
 
             carriedItem = item;
-            
+
             if (IsDeskMode)
             {
                 AdjustCarriedItemForDeskVisibility();
@@ -393,26 +400,43 @@ namespace Whisperer
             return true;
         }
 
-        bool TryPickUpDeskProp(DeskPropItem deskProp)
+        bool TryPickUpEnvelope(EnvelopeItem envelope, Transform targetCarryAnchor)
+        {
+            if (IsDeskMode)
+            {
+                if (!envelope.PickUpFromDesk(targetCarryAnchor))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                envelope.PickUp(targetCarryAnchor);
+            }
+
+            carriedItem = envelope;
+
+            if (IsDeskMode)
+            {
+                AdjustCarriedItemForDeskVisibility();
+            }
+
+            return true;
+        }
+
+        bool TryPickUpDeskProp(DeskPropItem deskProp, Transform targetCarryAnchor)
         {
             if (deskProp == null || HasCarriedItem)
             {
                 return false;
             }
 
-            Transform targetCarryAnchor = GetActiveCarryAnchor();
-            if (targetCarryAnchor == null)
-            {
-                Debug.LogWarning("PlayerInteractionController: Carry anchor is missing.", this);
-                return false;
-            }
-
             deskProp.PickUp(targetCarryAnchor);
-            carriedDeskProp = deskProp;
+            carriedItem = deskProp;
 
             if (IsDeskMode)
             {
-                AdjustCarriedDeskPropForDeskVisibility();
+                AdjustCarriedItemForDeskVisibility();
             }
 
             return true;
@@ -433,7 +457,7 @@ namespace Whisperer
         bool TryGetInteractableHit(out StudyInteractable interactable)
         {
             interactable = null;
-            if (!TryGetInteractionTarget(out _, out _, out StudyInteractable targetInteractable))
+            if (!TryGetInteractionTarget(out _, out StudyInteractable targetInteractable))
             {
                 return false;
             }
@@ -505,7 +529,14 @@ namespace Whisperer
                 return;
             }
 
-            if (deskLetterAnchor != null && carriedItem.OpenAtDesk(deskLetterAnchor))
+            LetterItem letter = carriedItem as LetterItem;
+            if (letter == null)
+            {
+                Debug.LogWarning("PlayerInteractionController: Unsupported carried item cannot be auto-placed at desk.", this);
+                return;
+            }
+
+            if (deskLetterAnchor != null && letter.OpenAtDesk(deskLetterAnchor))
             {
                 carriedItem = null;
                 return;
@@ -513,12 +544,12 @@ namespace Whisperer
 
             if (TryGetDeskPlacementPose(out Vector3 worldPosition, out Quaternion worldRotation))
             {
-                carriedItem.PlaceAtDesk(worldPosition, worldRotation, GetDeskPlacementParent());
+                letter.PlaceAtDesk(worldPosition, worldRotation, GetDeskPlacementParent());
                 carriedItem = null;
                 return;
             }
 
-            if (carriedItem.OpenAtDesk(deskLetterAnchor))
+            if (letter.OpenAtDesk(deskLetterAnchor))
             {
                 carriedItem = null;
                 return;
@@ -574,7 +605,7 @@ namespace Whisperer
 
         void RefreshHoverState()
         {
-            if (!TryGetInteractionTarget(out LetterItem item, out DeskPropItem deskProp, out StudyInteractable interactable))
+            if (!TryGetInteractionTarget(out CarriableItem item, out StudyInteractable interactable))
             {
                 interactionHud?.SetState(false, "");
                 return;
@@ -591,16 +622,6 @@ namespace Whisperer
                 }
 
                 actionLabel = item.GetInteractionPrompt(IsDeskMode);
-            }
-            else if (deskProp != null)
-            {
-                if (!IsDeskMode && carriedDeskProp != null)
-                {
-                    interactionHud?.SetState(true, "");
-                    return;
-                }
-
-                actionLabel = deskProp.GetInteractionPrompt(IsDeskMode);
             }
             else if (interactable != null)
             {
@@ -637,35 +658,6 @@ namespace Whisperer
             else
             {
                 itemTransform.position = desiredWorldPosition;
-            }
-        }
-
-        void AdjustCarriedDeskPropForDeskVisibility()
-        {
-            if (carriedDeskProp == null)
-            {
-                return;
-            }
-
-            Camera deskCamera = modeSwitcher?.DeskCamera;
-            if (deskCamera == null)
-            {
-                return;
-            }
-
-            Transform propTransform = carriedDeskProp.transform;
-            Vector3 desiredWorldPosition = deskCamera.transform.position
-                + deskCamera.transform.forward * deskModeCarryDistance
-                + deskCamera.transform.up * deskModeCarryHeight;
-            
-            // Position the prop in front of the camera without moving its parent anchor.
-            if (propTransform.parent != null)
-            {
-                propTransform.localPosition = propTransform.parent.InverseTransformPoint(desiredWorldPosition);
-            }
-            else
-            {
-                propTransform.position = desiredWorldPosition;
             }
         }
 

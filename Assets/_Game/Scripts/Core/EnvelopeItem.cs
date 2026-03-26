@@ -5,7 +5,7 @@ using UnityEditor;
 
 namespace Whisperer
 {
-    public class EnvelopeItem : LetterItem
+    public class EnvelopeItem : CarriableItem
     {
         [Header("Envelope")]
         [SerializeField] GameObject openedLetterPrefab;
@@ -18,7 +18,7 @@ namespace Whisperer
 
         public bool CanOpenFromDesk => IsPlacedOnDesk && !IsEnvelopeOpened;
 
-        public override bool CanPickUpAtDesk()
+        public bool CanPickUpAtDesk()
         {
             return IsPlacedOnDesk && !IsEnvelopeOpened && !IsCarried;
         }
@@ -33,7 +33,7 @@ namespace Whisperer
             return base.GetInteractionPrompt(isDeskMode);
         }
 
-        public override bool PickUpFromDesk(Transform carryAnchor)
+        public bool PickUpFromDesk(Transform carryAnchor)
         {
             if (!CanPickUpAtDesk() || carryAnchor == null)
             {
@@ -45,7 +45,7 @@ namespace Whisperer
             return true;
         }
 
-        public override bool OpenAtDesk(Transform deskAnchor)
+        public bool OpenAtDesk(Transform deskAnchor)
         {
             if (!IsCarried || deskAnchor == null)
             {
@@ -53,7 +53,7 @@ namespace Whisperer
             }
 
             // First desk interaction while carrying places the envelope unopened.
-            PlaceAtDesk(deskAnchor, markOpenedAtDesk: false);
+            PlaceAtDeskCore(deskAnchor);
             IsPlacedOnDesk = true;
             return true;
         }
@@ -65,7 +65,7 @@ namespace Whisperer
                 return false;
             }
 
-            PlaceAtDesk(worldPosition, worldRotation, deskParent, markOpenedAtDesk: false);
+            PlaceAtDeskCore(worldPosition, worldRotation, deskParent);
             IsPlacedOnDesk = true;
             return true;
         }
