@@ -121,6 +121,11 @@ namespace Whisperer
             PlaceAtDesk(deskAnchor, markOpenedAtDesk: true);
         }
 
+        public void PlaceAtDesk(Vector3 worldPosition, Quaternion worldRotation, Transform deskParent = null)
+        {
+            PlaceAtDesk(worldPosition, worldRotation, deskParent, markOpenedAtDesk: true);
+        }
+
         protected void PlaceAtDesk(Transform deskAnchor, bool markOpenedAtDesk)
         {
             EnsureInitialized();
@@ -131,6 +136,20 @@ namespace Whisperer
             itemRoot.SetParent(deskAnchor, worldPositionStays: false);
             itemRoot.localPosition = Vector3.zero;
             itemRoot.localRotation = Quaternion.identity;
+
+            SetPhysicsForCarriedState();
+        }
+
+        protected void PlaceAtDesk(Vector3 worldPosition, Quaternion worldRotation, Transform deskParent, bool markOpenedAtDesk)
+        {
+            EnsureInitialized();
+
+            IsCarried = false;
+            IsOpenedAtDesk = markOpenedAtDesk;
+
+            itemRoot.SetParent(deskParent, worldPositionStays: true);
+            itemRoot.position = worldPosition;
+            itemRoot.rotation = worldRotation;
 
             SetPhysicsForCarriedState();
         }

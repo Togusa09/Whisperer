@@ -45,6 +45,18 @@ namespace Whisperer
             return true;
         }
 
+        public bool OpenAtDesk(Vector3 worldPosition, Quaternion worldRotation, Transform deskParent = null)
+        {
+            if (!IsCarried)
+            {
+                return false;
+            }
+
+            PlaceAtDesk(worldPosition, worldRotation, deskParent, markOpenedAtDesk: false);
+            IsPlacedOnDesk = true;
+            return true;
+        }
+
         public bool OpenFromDesk(Transform deskAnchor)
         {
             if (!CanOpenFromDesk || deskAnchor == null)
@@ -71,6 +83,36 @@ namespace Whisperer
 
             IsEnvelopeOpened = true;
             letterItem.PlaceAtDesk(deskAnchor);
+            DestroyEnvelopeRoot();
+            return true;
+        }
+
+        public bool OpenFromDesk(Vector3 worldPosition, Quaternion worldRotation, Transform deskParent = null)
+        {
+            if (!CanOpenFromDesk)
+            {
+                return false;
+            }
+
+            if (openedLetterPrefab == null)
+            {
+                Debug.LogWarning("EnvelopeItem: Opened letter prefab is not assigned.", this);
+                return false;
+            }
+
+            GameObject openedLetter = Instantiate(openedLetterPrefab, worldPosition, worldRotation, deskParent);
+            openedLetter.name = openedLetterPrefab.name;
+
+            LetterItem letterItem = openedLetter.GetComponentInChildren<LetterItem>();
+            if (letterItem == null)
+            {
+                Debug.LogWarning("EnvelopeItem: Spawned letter prefab is missing LetterItem.", this);
+                Destroy(openedLetter);
+                return false;
+            }
+
+            IsEnvelopeOpened = true;
+            letterItem.PlaceAtDesk(worldPosition, worldRotation, deskParent);
             DestroyEnvelopeRoot();
             return true;
         }
