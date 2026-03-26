@@ -4,6 +4,8 @@ namespace Whisperer
 {
     public class DeskModeInteractable : StudyInteractable
     {
+        public override string InteractionPrompt => "Use Desk";
+
         [SerializeField] PlayerModeSwitcher modeSwitcher;
 
         void Awake()

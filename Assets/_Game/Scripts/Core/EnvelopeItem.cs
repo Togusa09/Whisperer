@@ -10,6 +10,9 @@ namespace Whisperer
         [Header("Envelope")]
         [SerializeField] GameObject openedLetterPrefab;
 
+        [Header("Interaction")]
+        [SerializeField] string deskOpenActionLabel = "Open";
+
         public bool IsPlacedOnDesk { get; private set; }
         public bool IsEnvelopeOpened { get; private set; }
 
@@ -18,6 +21,16 @@ namespace Whisperer
         public override bool CanPickUpAtDesk()
         {
             return IsPlacedOnDesk && !IsEnvelopeOpened && !IsCarried;
+        }
+
+        public override string GetInteractionPrompt(bool isDeskMode)
+        {
+            if (isDeskMode && CanOpenFromDesk)
+            {
+                return deskOpenActionLabel;
+            }
+
+            return base.GetInteractionPrompt(isDeskMode);
         }
 
         public override bool PickUpFromDesk(Transform carryAnchor)

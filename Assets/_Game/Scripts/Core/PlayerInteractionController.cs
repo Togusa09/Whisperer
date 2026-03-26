@@ -22,13 +22,7 @@ namespace Whisperer
         [SerializeField] string deskEntryTag = "DeskEntry";
 
         [Header("Desk Feedback")]
-        [SerializeField] bool showInteractionReticle = true;
-        [SerializeField] Color reticleIdleColor = new(1f, 1f, 1f, 0.3f);
-        [SerializeField] Color reticleHoverColor = new(0.95f, 0.83f, 0.35f, 0.95f);
-        [SerializeField] float reticleSize = 10f;
-        [SerializeField] bool showInteractionPrompt = true;
-        [SerializeField] Color promptTextColor = new(1f, 1f, 1f, 0.9f);
-        [SerializeField] int promptFontSize = 16;
+        [SerializeField] InteractionHudController interactionHud;
 
         [Header("Desk Mode Carry Visibility")]
         [SerializeField] float deskModeCarryDistance = 0.4f;
@@ -37,8 +31,6 @@ namespace Whisperer
         LetterItem carriedItem;
         DeskPropItem carriedDeskProp;
         bool shouldPlaceOnDeskNextFrame = false;
-        bool isHoveringTarget;
-        string lastInteractionPrompt = "";
         DeskModeInteractable lastUsedDeskInteractable;
 
         public bool IsDeskMode => modeSwitcher != null && modeSwitcher.CurrentMode == PlayerMode.Desk;
@@ -582,57 +574,41 @@ namespace Whisperer
 
         void RefreshHoverState()
         {
-            isHoveringTarget = false;
-            lastInteractionPrompt = "";
-
             if (!TryGetInteractionTarget(out LetterItem item, out DeskPropItem deskProp, out StudyInteractable interactable))
             {
+                interactionHud?.SetState(false, "");
                 return;
             }
 
-            isHoveringTarget = true;
+            string actionLabel = "";
 
-            if (IsDeskMode)
+            if (item != null)
             {
-                if (item != null)
+                if (!IsDeskMode && carriedItem != null)
                 {
-                    if (item is EnvelopeItem envelope && envelope.CanOpenFromDesk)
-                    {
-                        lastInteractionPrompt = "Press E to Open";
-                    }
-                    else if (item.CanPickUpAtDesk() || item.IsOpenedAtDesk)
-                    {
-                        lastInteractionPrompt = "Press E to Move";
-                    }
-                    else
-                    {
-                        lastInteractionPrompt = "Press E to Place";
-                    }
+                    interactionHud?.SetState(true, "");
+                    return;
                 }
-                else if (deskProp != null)
-                {
-                    lastInteractionPrompt = "Press E to Move";
-                }
-                else if (interactable != null)
-                {
-                    lastInteractionPrompt = "Press E to Interact";
-                }
+
+                actionLabel = item.GetInteractionPrompt(IsDeskMode);
             }
-            else
+            else if (deskProp != null)
             {
-                if (item != null)
+                if (!IsDeskMode && carriedDeskProp != null)
                 {
-                    lastInteractionPrompt = carriedItem != null ? "" : "Press E to Pick Up";
+                    interactionHud?.SetState(true, "");
+                    return;
                 }
-                else if (deskProp != null)
-                {
-                    lastInteractionPrompt = carriedDeskProp != null ? "" : "Press E to Pick Up";
-                }
-                else if (interactable != null)
-                {
-                    lastInteractionPrompt = "Press E to Interact";
-                }
+
+                actionLabel = deskProp.GetInteractionPrompt(IsDeskMode);
             }
+            else if (interactable != null)
+            {
+                actionLabel = interactable.InteractionPrompt;
+            }
+
+            string prompt = string.IsNullOrEmpty(actionLabel) ? "" : $"Press E to {actionLabel}";
+            interactionHud?.SetState(true, prompt);
         }
 
         void AdjustCarriedItemForDeskVisibility()
@@ -693,40 +669,5 @@ namespace Whisperer
             }
         }
 
-        void OnGUI()
-        {
-            if (!showInteractionReticle)
-            {
-                return;
-            }
-
-            float size = Mathf.Max(2f, reticleSize);
-            float half = size * 0.5f;
-            Rect reticleRect = new Rect((Screen.width * 0.5f) - half, (Screen.height * 0.5f) - half, size, size);
-            
-            Color previousColor = GUI.color;
-            GUI.color = isHoveringTarget ? reticleHoverColor : reticleIdleColor;
-            GUI.DrawTexture(reticleRect, Texture2D.whiteTexture);
-            GUI.color = previousColor;
-
-            if (showInteractionPrompt && !string.IsNullOrEmpty(lastInteractionPrompt))
-            {
-                GUIStyle promptStyle = new GUIStyle(GUI.skin.label)
-                {
-                    fontSize = promptFontSize,
-                    alignment = TextAnchor.MiddleCenter,
-                    wordWrap = true
-                };
-                promptStyle.normal.textColor = promptTextColor;
-
-                Rect promptRect = new Rect(
-                    (Screen.width * 0.5f) - 150f,
-                    (Screen.height * 0.5f) + 30f,
-                    300f,
-                    50f
-                );
-                GUI.Label(promptRect, lastInteractionPrompt, promptStyle);
-            }
-        }
     }
 }

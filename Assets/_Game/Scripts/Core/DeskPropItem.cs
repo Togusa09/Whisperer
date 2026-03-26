@@ -14,8 +14,17 @@ namespace Whisperer
         [SerializeField] float dropVerticalOffset = -0.1f;
         [SerializeField] float dropVelocity = 1.2f;
 
+        [Header("Interaction")]
+        [SerializeField] string exploreActionLabel = "Pick Up";
+        [SerializeField] string deskActionLabel = "Pick Up";
+
         public bool IsCarried { get; private set; }
         public bool IsPlacedAtDesk { get; private set; }
+
+        public string GetInteractionPrompt(bool isDeskMode)
+        {
+            return isDeskMode ? deskActionLabel : exploreActionLabel;
+        }
 
         void Awake()
         {

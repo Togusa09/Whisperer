@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="HudRoot" class="hud-root">
+        <ui:VisualElement name="Reticle" class="reticle" />
+        <ui:Label name="InteractionPrompt" class="interaction-prompt" text="" />
+    </ui:VisualElement>
+</ui:UXML>

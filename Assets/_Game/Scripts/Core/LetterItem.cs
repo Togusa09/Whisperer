@@ -14,6 +14,10 @@ namespace Whisperer
         [SerializeField] float dropVerticalOffset = -0.15f;
         [SerializeField] float dropVelocity = 1.5f;
 
+        [Header("Interaction")]
+        [SerializeField] string exploreActionLabel = "Pick Up";
+        [SerializeField] string deskActionLabel = "Pick Up";
+
         public bool IsCarried { get; protected set; }
         public bool IsOpenedAtDesk { get; protected set; }
         public bool IsPlacedAtDesk => IsOpenedAtDesk;
@@ -114,6 +118,11 @@ namespace Whisperer
         public bool CanOpenOutsideDesk()
         {
             return !IsOpenedAtDesk;
+        }
+
+        public virtual string GetInteractionPrompt(bool isDeskMode)
+        {
+            return isDeskMode ? deskActionLabel : exploreActionLabel;
         }
 
         public void PlaceAtDesk(Transform deskAnchor)
