@@ -16,6 +16,7 @@ namespace Whisperer
 
         public bool IsCarried { get; protected set; }
         public bool IsOpenedAtDesk { get; protected set; }
+        public bool IsPlacedAtDesk => IsOpenedAtDesk;
         protected Transform ItemRoot => itemRoot != null ? itemRoot : transform;
 
         void Awake()
@@ -90,6 +91,23 @@ namespace Whisperer
             }
 
             PlaceAtDesk(deskAnchor);
+            return true;
+        }
+
+        public virtual bool CanPickUpAtDesk()
+        {
+            return IsOpenedAtDesk && !IsCarried;
+        }
+
+        public virtual bool PickUpFromDesk(Transform carryAnchor)
+        {
+            if (!CanPickUpAtDesk() || carryAnchor == null)
+            {
+                return false;
+            }
+
+            PickUp(carryAnchor);
+            IsOpenedAtDesk = true;
             return true;
         }
 

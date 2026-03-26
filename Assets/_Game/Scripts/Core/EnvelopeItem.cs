@@ -15,6 +15,23 @@ namespace Whisperer
 
         public bool CanOpenFromDesk => IsPlacedOnDesk && !IsEnvelopeOpened;
 
+        public override bool CanPickUpAtDesk()
+        {
+            return IsPlacedOnDesk && !IsEnvelopeOpened && !IsCarried;
+        }
+
+        public override bool PickUpFromDesk(Transform carryAnchor)
+        {
+            if (!CanPickUpAtDesk() || carryAnchor == null)
+            {
+                return false;
+            }
+
+            PickUp(carryAnchor);
+            IsPlacedOnDesk = false;
+            return true;
+        }
+
         public override bool OpenAtDesk(Transform deskAnchor)
         {
             if (!IsCarried || deskAnchor == null)

@@ -9,6 +9,7 @@ namespace Whisperer
         [Header("References")]
         [SerializeField] Camera interactionCamera;
         [SerializeField] Transform carryAnchor;
+        [SerializeField] Transform deskCarryAnchor;
         [SerializeField] Transform deskLetterAnchor;
         [SerializeField] PlayerModeSwitcher modeSwitcher;
 
@@ -108,6 +109,20 @@ namespace Whisperer
 
                 if (IsDeskMode)
                 {
+                    if (carriedItem is EnvelopeItem carriedEnvelope && carriedEnvelope.CanOpenFromDesk)
+                    {
+                        carriedEnvelope.OpenFromDesk(deskLetterAnchor);
+                        carriedItem = null;
+                        return;
+                    }
+
+                    if (carriedItem.CanPickUpAtDesk() || carriedItem.IsOpenedAtDesk)
+                    {
+                        carriedItem.PlaceAtDesk(deskLetterAnchor);
+                        carriedItem = null;
+                        return;
+                    }
+
                     if (!carriedItem.OpenAtDesk(deskLetterAnchor))
                     {
                         Debug.LogWarning("PlayerInteractionController: Desk letter anchor is missing; cannot open letter at desk.", this);
@@ -125,12 +140,11 @@ namespace Whisperer
                 return;
             }
 
-            if (!TryGetHit(out RaycastHit hit))
+            if (!TryGetInteractionTarget(out LetterItem item, out StudyInteractable interactable))
             {
                 return;
             }
 
-            LetterItem item = hit.collider.GetComponentInParent<LetterItem>();
             if (item != null)
             {
                 if (IsDeskMode && item is EnvelopeItem envelope && envelope.CanOpenFromDesk)
@@ -139,63 +153,26 @@ namespace Whisperer
                     return;
                 }
 
-                if (item.IsOpenedAtDesk && !IsDeskMode)
+                if (!IsDeskMode && item.IsOpenedAtDesk)
                 {
                     return;
                 }
 
-                TryPickUpItem(item);
+                if (!TryPickUpItem(item) && IsDeskMode && item.IsOpenedAtDesk)
+                {
+                    item.PlaceAtDesk(deskLetterAnchor);
+                }
                 return;
             }
 
-            StudyInteractable interactable = hit.collider.GetComponentInParent<StudyInteractable>();
             interactable?.TryInteract(this);
         }
 
-        bool TryGetHit(out RaycastHit hit)
+        bool TryGetInteractionTarget(out LetterItem item, out StudyInteractable interactable)
         {
-            hit = default;
-            Camera activeCamera = ActiveInteractionCamera;
-            if (activeCamera == null)
-            {
-                return false;
-            }
-
-            Ray ray = new Ray(activeCamera.transform.position, activeCamera.transform.forward);
-            return Physics.Raycast(ray, out hit, interactDistance, interactionMask, QueryTriggerInteraction.Collide);
-        }
-
-        bool TryPickUpItem(LetterItem item)
-        {
-            if (item == null || carriedItem != null)
-            {
-                return false;
-            }
-
-            Transform targetCarryAnchor = carryAnchor;
-            if (targetCarryAnchor == null)
-            {
-                Camera activeCamera = ActiveInteractionCamera;
-                if (activeCamera != null)
-                {
-                    targetCarryAnchor = activeCamera.transform;
-                }
-            }
-
-            if (targetCarryAnchor == null)
-            {
-                Debug.LogWarning("PlayerInteractionController: Carry anchor is missing.", this);
-                return false;
-            }
-
-            item.PickUp(targetCarryAnchor);
-            carriedItem = item;
-            return true;
-        }
-
-        bool TryGetInteractableHit(out StudyInteractable interactable)
-        {
+            item = null;
             interactable = null;
+
             Camera activeCamera = ActiveInteractionCamera;
             if (activeCamera == null)
             {
@@ -218,15 +195,75 @@ namespace Whisperer
                     continue;
                 }
 
-                StudyInteractable candidate = hits[i].collider.GetComponentInParent<StudyInteractable>();
-                if (candidate != null)
+                if (hitItem != null)
                 {
-                    interactable = candidate;
+                    item = hitItem;
+                    return true;
+                }
+
+                StudyInteractable hitInteractable = hits[i].collider.GetComponentInParent<StudyInteractable>();
+                if (hitInteractable != null)
+                {
+                    interactable = hitInteractable;
                     return true;
                 }
             }
 
             return false;
+        }
+
+        bool TryPickUpItem(LetterItem item)
+        {
+            if (item == null || carriedItem != null)
+            {
+                return false;
+            }
+
+            Transform targetCarryAnchor = GetActiveCarryAnchor();
+            if (targetCarryAnchor == null)
+            {
+                Debug.LogWarning("PlayerInteractionController: Carry anchor is missing.", this);
+                return false;
+            }
+
+            if (IsDeskMode)
+            {
+                if (!item.PickUpFromDesk(targetCarryAnchor))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                item.PickUp(targetCarryAnchor);
+            }
+
+            carriedItem = item;
+            return true;
+        }
+
+        Transform GetActiveCarryAnchor()
+        {
+            Transform targetCarryAnchor = IsDeskMode ? deskCarryAnchor : carryAnchor;
+            if (targetCarryAnchor != null)
+            {
+                return targetCarryAnchor;
+            }
+
+            Camera activeCamera = ActiveInteractionCamera;
+            return activeCamera != null ? activeCamera.transform : null;
+        }
+
+        bool TryGetInteractableHit(out StudyInteractable interactable)
+        {
+            interactable = null;
+            if (!TryGetInteractionTarget(out _, out StudyInteractable targetInteractable))
+            {
+                return false;
+            }
+
+            interactable = targetInteractable;
+            return interactable != null;
         }
 
         bool TryEnterDeskModeByProximity()
