@@ -101,7 +101,7 @@ Acceptance Criteria:
 Priority: P3
 Effort: M
 Dependencies: S1
-Status: Planned
+Status: In Progress
 Description:
 - Integrate movement/look/interaction input actions for exploration mode.
 Acceptance Criteria:
@@ -123,7 +123,7 @@ Acceptance Criteria:
 Priority: P3
 Effort: M
 Dependencies: S1, S3
-Status: Planned
+Status: In Progress
 Description:
 - Stage physical arrival from door mailslot and settle letter on floor as interactable object.
 Acceptance Criteria:
@@ -133,7 +133,7 @@ Acceptance Criteria:
 Priority: P3
 Effort: M
 Dependencies: S3, S4
-Status: Planned
+Status: In Progress
 Description:
 - Player picks up letter from floor, carries it, and can open/read only while in desk context.
 Acceptance Criteria:
@@ -185,6 +185,66 @@ Tasks: S7
 Exit Criteria:
 - Results documented.
 - Production recommendation recorded.
+
+## Implementation Notes (2026-03-26)
+
+Current branch implementation added first-party runtime scaffolding for M1/M2 and part of M3:
+- `Assets/_Game/Scripts/Core/PlayerMode.cs`
+- `Assets/_Game/Scripts/Core/PlayerSpawnMarker.cs`
+- `Assets/_Game/Scripts/Core/PlayerModeSwitcher.cs`
+- `Assets/_Game/Scripts/Core/FirstPersonMover.cs`
+- `Assets/_Game/Scripts/Core/PlayerInteractionController.cs`
+- `Assets/_Game/Scripts/Core/StudyInteractable.cs`
+- `Assets/_Game/Scripts/Core/DeskModeInteractable.cs`
+- `Assets/_Game/Scripts/Core/LetterItem.cs`
+- `Assets/_Game/Scripts/Core/LetterArrivalController.cs`
+
+Implemented behavior in this slice:
+- Explore vs Desk mode state and camera/behaviour toggling.
+- Spawn marker-based player placement at startup.
+- FPS movement/look/jump/sprint baseline (keyboard+mouse controls).
+- Interaction raycast (`E`) with desk-mode entry and desk-mode exit (`Esc`).
+- Mail pickup/drop and desk-only open placement constraint.
+- Envelope spawn at the door, with desk opening that reveals a letter on the desk anchor.
+- Door spawn controller with physical impulse for floor-drop testing.
+
+Unity scene integration completed in `WilmarthStudy.unity`:
+- Created `PlayerRig` with `CharacterController`, `FirstPersonMover`, `PlayerModeSwitcher`, and `PlayerInteractionController`.
+- Re-parented `Main Camera` under `PlayerRig` and created `CarryAnchor`.
+- Added `DeskCamera` for desk-mode viewing.
+- Added `PlayerSpawnMarker` to `PlayerSpawn`.
+- Added `DeskModeInteractable` to `Desk/Work Area`.
+- Added `LetterArrivalController` to `Door` with `EnvelopeSpawn` as spawn point.
+- Restored `PlayerRig` scene wiring after it was lost from the saved scene during spike iteration.
+- Added `LetterItem` to the physical child object inside `Assets/_Game/Prefabs/Letter.prefab`.
+- Added `EnvelopeItem` to the physical child object inside `Assets/_Game/Prefabs/Envelope.prefab`, configured to reveal `Letter.prefab` at the desk.
+
+Current debug controls:
+- `WASD`: move
+- Mouse: look
+- `Left Shift`: sprint
+- `Space`: jump
+- `E`: interact / pick up / drop / open at desk
+- `Esc`: exit desk mode
+- `R`: spawn incoming envelope at door spawn marker
+
+Scene wiring checklist for current scripts:
+1. Add `PlayerModeSwitcher` to a scene coordinator object and assign:
+	- `playerRoot`
+	- `explorationCamera`
+	- `deskCamera`
+	- `spawnMarker` (optional if unique `PlayerSpawnMarker` exists)
+2. Add `FirstPersonMover` to the player object with a `CharacterController`.
+3. Add `PlayerInteractionController` to the player object and assign:
+	- `interactionCamera`
+	- `carryAnchor` (usually a child transform near camera)
+	- `deskLetterAnchor` (where opened letters rest at desk)
+	- `modeSwitcher`
+4. Add `DeskModeInteractable` to desk interaction collider(s).
+5. Add `LetterItem` to letter prefab root so pickup/open behavior is enabled.
+
+Known gap before S4 completion:
+- Delivery timing/state is still debug-driven; it is not yet connected to correspondence/UI state or authored arrival sequencing.
 
 ## Decision Log
 

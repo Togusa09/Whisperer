@@ -1,3 +1,6 @@
 {
-    "name": "Whisperer.Core"
+    "name": "Whisperer.Core",
+    "references": [
+        "Unity.InputSystem"
+    ]
 }
