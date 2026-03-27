@@ -636,12 +636,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: Whisperer.Core::Whisperer.PlayerInteractionController
   interactionCamera: {fileID: 787767506}
   carryAnchor: {fileID: 1916152138}
+  deskCarryAnchor: {fileID: 0}
   deskLetterAnchor: {fileID: 1921258457}
+  deskPlacementParent: {fileID: 0}
   modeSwitcher: {fileID: 462146079}
   interactDistance: 2.5
   interactionMask:
     serializedVersion: 2
     m_Bits: 4294967295
+  deskSurfaceMask:
+    serializedVersion: 2
+    m_Bits: 64
+  deskSurfaceOffset: 0.005
+  deskEntryTag: DeskEntry
+  interactionHud: {fileID: 0}
+  deskModeCarryDistance: 0.4
+  deskModeCarryHeight: 0.08
 --- !u!114 &462146079
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5037,8 +5047,16 @@ PrefabInstance:
       value: -0.17111613
       objectReference: {fileID: 0}
     - target: {fileID: 7295193598985426979, guid: 188a1a23f8ec2814e8eae59fa26555ee, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7295193598985426979, guid: 188a1a23f8ec2814e8eae59fa26555ee, type: 3}
       propertyPath: m_IsTrigger
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7303821458369706632, guid: 188a1a23f8ec2814e8eae59fa26555ee, type: 3}
+      propertyPath: m_TagString
+      value: DeskEntry
       objectReference: {fileID: 0}
     - target: {fileID: 8531862722894967026, guid: 188a1a23f8ec2814e8eae59fa26555ee, type: 3}
       propertyPath: m_LocalPosition.x

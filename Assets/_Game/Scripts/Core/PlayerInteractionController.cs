@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UIElements;
 using System;
 
 namespace Whisperer
@@ -69,14 +70,41 @@ namespace Whisperer
             {
                 deskPlacementParent = deskLetterAnchor.parent;
             }
+
+            EnsureInteractionHud();
         }
 
         void OnEnable()
         {
+            EnsureInteractionHud();
         }
 
         void OnDisable()
         {
+        }
+
+        void EnsureInteractionHud()
+        {
+            if (interactionHud != null)
+            {
+                interactionHud.SetVisible(true);
+                return;
+            }
+
+            interactionHud = FindAnyObjectByType<InteractionHudController>();
+            if (interactionHud != null)
+            {
+                interactionHud.SetVisible(true);
+                return;
+            }
+
+            GameObject hudObject = new GameObject("InteractionHud");
+            hudObject.transform.SetParent(transform, worldPositionStays: false);
+
+            UIDocument document = hudObject.AddComponent<UIDocument>();
+            interactionHud = hudObject.AddComponent<InteractionHudController>();
+            document.sortingOrder = short.MaxValue;
+            interactionHud.SetVisible(true);
         }
 
         void Update()

@@ -11,10 +11,14 @@
 }
 
 .reticle {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    margin-left: -4px;
+    margin-top: -4px;
     width: 8px;
     height: 8px;
     background-color: rgba(255, 255, 255, 0.3);
-    margin-bottom: 24px;
 }
 
 .reticle--hover {
@@ -22,6 +26,7 @@
 }
 
 .interaction-prompt {
+    margin-top: 40px;
     color: rgba(255, 255, 255, 0.9);
     font-size: 14px;
     -unity-text-align: middle-center;
