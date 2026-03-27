@@ -121,6 +121,15 @@ namespace Whisperer.Editor
             EditorGUILayout.Space(6);
             EditorGUILayout.LabelField("LLM Controls", EditorStyles.boldLabel);
 
+            EditorGUI.BeginChangeCheck();
+            float replyRevealMin = EditorGUILayout.FloatField("Reply Reveal Min (s)", controller.DiagnosticsReplyRevealMinSeconds);
+            float replyRevealMax = EditorGUILayout.FloatField("Reply Reveal Max (s)", controller.DiagnosticsReplyRevealMaxSeconds);
+            if (EditorGUI.EndChangeCheck())
+            {
+                controller.SetReplyRevealIntervalForDiagnostics(replyRevealMin, replyRevealMax);
+                EditorUtility.SetDirty(controller);
+            }
+
             EditorGUILayout.BeginHorizontal();
             string pauseLabel = controller.DiagnosticsIsPaused ? "Resume LLM" : "Pause LLM";
             if (GUILayout.Button(pauseLabel, GUILayout.Height(24)))

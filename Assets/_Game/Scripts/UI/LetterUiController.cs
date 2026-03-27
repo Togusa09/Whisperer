@@ -93,6 +93,12 @@ namespace Whisperer
         [Header("LLM Warmup")]
         public bool warmupOnStart = true;
 
+        [Header("Reply Reveal")]
+        [Min(0f)]
+        public float minReplyRevealSeconds = 5f;
+        [Min(0f)]
+        public float maxReplyRevealSeconds = 10f;
+
         [Header("Template")]
         public string fromName = "Albert N. Wilmarth";
         public string toName = "Henry W. Akeley";
@@ -168,6 +174,19 @@ namespace Whisperer
         TurnArchiveRecord selectedArchiveRecord;
         TurnArchiveRecord openDeskRecord;
         readonly Dictionary<TurnArchiveRecord, Vector2> deskLetterPositions = new Dictionary<TurnArchiveRecord, Vector2>();
+        readonly object replyStreamLock = new object();
+        TurnArchiveRecord pendingReplyRecord;
+        string pendingReplyText = "";
+        string pendingReplyPlaceholder = DefaultReplyPlaceholder;
+        bool queuedReplyTextDirty;
+        string queuedReplyText = "";
+        bool replyRevealReady;
+        bool replyGenerationComplete;
+        int activeReplySessionId;
+        int activeReplyAttemptId;
+
+        const string DefaultReplyPlaceholder = "Akeley's hand is still moving across the page...";
+        const string FallbackReplyPlaceholder = "Akeley pauses to correct the chronology of his letter...";
 
         void Awake()
         {
@@ -393,6 +412,8 @@ namespace Whisperer
                 EnsureUiBuilt();
             }
 
+            ApplyQueuedReplyStreamUpdate();
+
             if (Time.unscaledTime >= nextDiagnosticsRefreshTime)
             {
                 RefreshDiagnostics(false);
@@ -534,12 +555,15 @@ namespace Whisperer
             long generationStartTicks = DateTime.UtcNow.Ticks;
             lastFallbackUsed = false;
             lastValidationReport = "Validation not run.";
+            int replySessionId = BeginReplySession(replyDate);
+            Task revealTask = RevealReplyAfterDelayAsync(replySessionId);
 
             try
             {
                 if (statusLabel != null) statusLabel.text = "Awaiting Akeley's reply...";
 
-                string assistantReply = await activeModelClient.GenerateReply(systemPrompt, userPrompt, _ => { });
+                string assistantReply = await GenerateReplyAttempt(activeModelClient, systemPrompt, userPrompt, replySessionId);
+                ApplyQueuedReplyStreamUpdate();
                 string candidateReply = assistantReply?.Trim() ?? "";
 
                 if (consistencyValidator != null)
@@ -554,21 +578,42 @@ namespace Whisperer
                     if (!validation.isConsistent)
                     {
                         lastFallbackUsed = true;
-                        if (statusLabel != null) statusLabel.text = "Consistency check failed, generating corrected draft...";
+                        RestartPendingReplyStream(FallbackReplyPlaceholder);
+                        if (statusLabel != null) statusLabel.text = "Correcting Akeley's reply for chronology...";
                         string fallbackPrompt = letterPromptBuilder.BuildConsistencyFallbackPrompt(timeManager, body, candidateReply, validation.report);
-                        string correctedReply = await activeModelClient.GenerateReply(systemPrompt, fallbackPrompt, _ => { });
+                        string correctedReply = await GenerateReplyAttempt(activeModelClient, systemPrompt, fallbackPrompt, replySessionId);
+                        ApplyQueuedReplyStreamUpdate();
                         candidateReply = correctedReply?.Trim() ?? candidateReply;
                     }
 
                     lastValidationReport = validation.report;
                 }
 
+                UpdateReceivedLetterView(replyDate, candidateReply);
+                replyGenerationComplete = true;
+                ApplyPopupCloseState();
+
+                if (!replyRevealReady)
+                {
+                    await revealTask;
+                }
+
                 lastAssistantLetter = candidateReply;
                 lastResponseChars = lastAssistantLetter.Length;
                 lastGenerationMs = (DateTime.UtcNow.Ticks - generationStartTicks) / TimeSpan.TicksPerMillisecond;
-                UpdateReceivedLetterView(replyDate, lastAssistantLetter);
                 storyEventLedger.RecordGeneratedLetter(replyDate, lastAssistantLetter);
-                RecordArchiveTurn(sendDate, replyDate, playerLetter, lastAssistantLetter);
+                TurnArchiveRecord previousPendingRecord = pendingReplyRecord;
+                pendingReplyRecord = RecordArchiveTurn(sendDate, replyDate, playerLetter, lastAssistantLetter);
+                if (ReferenceEquals(openDeskRecord, previousPendingRecord))
+                {
+                    openDeskRecord = pendingReplyRecord;
+                }
+                if (previousPendingRecord != null && deskLetterPositions.TryGetValue(previousPendingRecord, out Vector2 savedPosition))
+                {
+                    deskLetterPositions.Remove(previousPendingRecord);
+                    deskLetterPositions[pendingReplyRecord] = savedPosition;
+                }
+                selectedArchiveRecord = pendingReplyRecord;
                 timeManager.AdvanceTurn();
 
                 if (bodyField != null) bodyField.value = "My dear Mr. Akeley,\n\n";
@@ -579,6 +624,7 @@ namespace Whisperer
             }
             catch (Exception ex)
             {
+                ClearPendingReplySession(true);
                 lastValidationReport = $"Generation failed: {ex.Message}";
                 RefreshDiagnostics(true);
                 SetComposerSectionState(ComposerSectionState.Compose);
@@ -723,6 +769,8 @@ namespace Whisperer
             {
                 composerNotificationButton.SetEnabled(composerState == ComposerSectionState.ReplyReady);
             }
+
+            ApplyPopupCloseState();
         }
 
         void ShowDiagnosticsDialog()
@@ -886,9 +934,22 @@ namespace Whisperer
 
         public bool IsDeskLetterVisibleForTests => letterPopupOverlay != null && letterPopupOverlay.resolvedStyle.display != DisplayStyle.None;
 
+        public bool ReplyReadyToOpenForTests => composerState == ComposerSectionState.ReplyReady;
+
+        public bool ReplyGenerationCompleteForTests => replyGenerationComplete;
+
+        public bool ReplyCloseEnabledForTests => popupCloseButton?.enabledSelf ?? false;
+
+        public string DeskLetterBodyForTests => popupLetterContent?.text ?? "";
+
         public void ReturnDeskLetterToFileForTests()
         {
             CloseLetterPopup();
+        }
+
+        public void OpenLatestReplyForTests()
+        {
+            OpenDeskLetter(GetReplyRecordToDisplay());
         }
 
         public string DeskLetterTitleForTests => popupTitle?.text ?? "";
@@ -901,6 +962,8 @@ namespace Whisperer
         public long DiagnosticsLastGenerationMs => lastGenerationMs;
         public int DiagnosticsLastPromptChars => lastPromptChars;
         public int DiagnosticsLastResponseChars => lastResponseChars;
+        public float DiagnosticsReplyRevealMinSeconds => Mathf.Max(0f, minReplyRevealSeconds);
+        public float DiagnosticsReplyRevealMaxSeconds => Mathf.Max(DiagnosticsReplyRevealMinSeconds, maxReplyRevealSeconds);
         public string DiagnosticsLastWarmupStatus => lastWarmupStatus;
         public string DiagnosticsLastSystemPrompt => lastSystemPromptSent;
         public string DiagnosticsLastUserPrompt => lastUserPromptSent;
@@ -930,18 +993,37 @@ namespace Whisperer
             ClearModelContext();
         }
 
+        public void SetReplyRevealIntervalForDiagnostics(float minSeconds, float maxSeconds)
+        {
+            minReplyRevealSeconds = Mathf.Max(0f, minSeconds);
+            maxReplyRevealSeconds = Mathf.Max(minReplyRevealSeconds, maxSeconds);
+            RefreshDiagnostics(true);
+        }
+
         void UpdateReceivedLetterView(DateTime replyDate, string letterContent)
         {
-            if (popupLetterContent == null) return;
-            popupLetterContent.text = 
-                $"{timeManager.FormatDate(replyDate)}\n\n" +
-                letterContent;
+            if (pendingReplyRecord == null)
+            {
+                pendingReplyRecord = new TurnArchiveRecord
+                {
+                    turnIndex = timeManager != null ? timeManager.CurrentTurn + 1 : 0,
+                    senderName = toName,
+                    replyDate = replyDate,
+                    assistantLetter = ""
+                };
+            }
+
+            pendingReplyText = letterContent ?? "";
+            pendingReplyRecord.replyDate = replyDate;
+            pendingReplyRecord.senderName = toName;
+            pendingReplyRecord.assistantLetter = pendingReplyText;
+            RefreshOpenReplyContent();
         }
 
         void OnComposerNotificationButtonClicked()
         {
             if (composerState != ComposerSectionState.ReplyReady) return;
-            OpenDeskLetter(GetLatestReceivedRecord());
+            OpenDeskLetter(GetReplyRecordToDisplay());
         }
 
         void OpenSelectedArchiveLetterOnDesk()
@@ -960,8 +1042,9 @@ namespace Whisperer
                 popupTitle.text = $"Letter from {sender}\n{timeManager.FormatDate(record.replyDate)}";
             }
 
-            popupLetterContent.text = record.assistantLetter;
+            popupLetterContent.text = GetDeskLetterBody(record);
             letterPopupOverlay.style.display = DisplayStyle.Flex;
+            ApplyPopupCloseState();
 
             if (TryGetDeskLetterPosition(record, out Vector2 savedPosition))
             {
@@ -976,11 +1059,15 @@ namespace Whisperer
         void CloseLetterPopup()
         {
             if (letterPopupOverlay == null) return;
+            if (IsPendingReplyRecord(openDeskRecord) && !replyGenerationComplete) return;
+
+            TurnArchiveRecord closingRecord = openDeskRecord;
             letterPopupOverlay.style.display = DisplayStyle.None;
             openDeskRecord = null;
-            if (composerState == ComposerSectionState.ReplyReady)
+            if (composerState == ComposerSectionState.ReplyReady && IsPendingReplyRecord(closingRecord) && replyGenerationComplete)
             {
                 SetComposerSectionState(ComposerSectionState.Compose);
+                ClearPendingReplySession(false);
                 if (statusLabel != null)
                 {
                     statusLabel.text = "Ready";
@@ -1024,15 +1111,26 @@ namespace Whisperer
                 }
                 else
                 {
-                    composerHint.text = "Akeley's reply has arrived. Open it to continue the correspondence.";
+                    composerHint.text = replyGenerationComplete
+                        ? "Akeley's reply has arrived. Open it to continue the correspondence."
+                        : "Akeley's reply has arrived. Open it to read what has reached you so far.";
                 }
             }
 
             if (composerNotificationLabel != null)
             {
-                composerNotificationLabel.text = nextState == ComposerSectionState.InTransit
-                    ? "Letter in transit while Akeley prepares his reply..."
-                    : "Reply received from Akeley.";
+                if (nextState == ComposerSectionState.InTransit)
+                {
+                    composerNotificationLabel.text = "Letter in transit while Akeley prepares his reply...";
+                }
+                else if (nextState == ComposerSectionState.ReplyReady && !replyGenerationComplete)
+                {
+                    composerNotificationLabel.text = "Reply received from Akeley. Additional pages are still arriving...";
+                }
+                else
+                {
+                    composerNotificationLabel.text = "Reply received from Akeley.";
+                }
             }
 
             if (composerNotificationButton != null)
@@ -1043,6 +1141,163 @@ namespace Whisperer
             }
 
             UpdateControlStates();
+        }
+
+        int BeginReplySession(DateTime replyDate)
+        {
+            activeReplySessionId++;
+            activeReplyAttemptId = 0;
+            pendingReplyRecord = new TurnArchiveRecord
+            {
+                turnIndex = timeManager != null ? timeManager.CurrentTurn + 1 : 0,
+                senderName = toName,
+                replyDate = replyDate,
+                assistantLetter = ""
+            };
+            pendingReplyText = "";
+            pendingReplyPlaceholder = DefaultReplyPlaceholder;
+            queuedReplyText = "";
+            queuedReplyTextDirty = false;
+            replyRevealReady = false;
+            replyGenerationComplete = false;
+            ApplyPopupCloseState();
+            return activeReplySessionId;
+        }
+
+        void RestartPendingReplyStream(string placeholder)
+        {
+            activeReplyAttemptId++;
+            pendingReplyText = "";
+            pendingReplyPlaceholder = string.IsNullOrWhiteSpace(placeholder) ? DefaultReplyPlaceholder : placeholder;
+            lock (replyStreamLock)
+            {
+                queuedReplyText = "";
+                queuedReplyTextDirty = false;
+            }
+
+            if (pendingReplyRecord != null)
+            {
+                pendingReplyRecord.assistantLetter = "";
+            }
+
+            RefreshOpenReplyContent();
+        }
+
+        void ClearPendingReplySession(bool hidePopup)
+        {
+            activeReplySessionId++;
+            activeReplyAttemptId++;
+            pendingReplyRecord = null;
+            pendingReplyText = "";
+            pendingReplyPlaceholder = DefaultReplyPlaceholder;
+            replyRevealReady = false;
+            replyGenerationComplete = false;
+            lock (replyStreamLock)
+            {
+                queuedReplyText = "";
+                queuedReplyTextDirty = false;
+            }
+
+            if (hidePopup && IsPendingReplyRecord(openDeskRecord) && letterPopupOverlay != null)
+            {
+                letterPopupOverlay.style.display = DisplayStyle.None;
+                openDeskRecord = null;
+            }
+
+            ApplyPopupCloseState();
+        }
+
+        async Task RevealReplyAfterDelayAsync(int replySessionId)
+        {
+            float delaySeconds = GetReplyRevealDelaySeconds();
+            if (delaySeconds > 0f)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
+            }
+
+            if (replySessionId != activeReplySessionId || pendingReplyRecord == null) return;
+
+            replyRevealReady = true;
+            SetComposerSectionState(ComposerSectionState.ReplyReady);
+            if (statusLabel != null)
+            {
+                statusLabel.text = "Reply received from Akeley.";
+            }
+        }
+
+        async Task<string> GenerateReplyAttempt(LetterModelClient activeModelClient, string systemPrompt, string userPrompt, int replySessionId)
+        {
+            int attemptId = ++activeReplyAttemptId;
+            return await activeModelClient.GenerateReply(systemPrompt, userPrompt, text => QueueReplyStreamUpdate(replySessionId, attemptId, text));
+        }
+
+        void QueueReplyStreamUpdate(int replySessionId, int attemptId, string text)
+        {
+            if (replySessionId != activeReplySessionId || attemptId != activeReplyAttemptId || text == null) return;
+
+            lock (replyStreamLock)
+            {
+                queuedReplyText = text;
+                queuedReplyTextDirty = true;
+            }
+        }
+
+        void ApplyQueuedReplyStreamUpdate()
+        {
+            if (!queuedReplyTextDirty) return;
+
+            string latestText;
+            lock (replyStreamLock)
+            {
+                if (!queuedReplyTextDirty) return;
+                latestText = queuedReplyText;
+                queuedReplyTextDirty = false;
+            }
+
+            DateTime replyDate = pendingReplyRecord != null
+                ? pendingReplyRecord.replyDate
+                : (timeManager != null ? timeManager.GetReplyDate() : DateTime.MinValue);
+            UpdateReceivedLetterView(replyDate, latestText);
+        }
+
+        float GetReplyRevealDelaySeconds()
+        {
+            float minDelay = DiagnosticsReplyRevealMinSeconds;
+            float maxDelay = DiagnosticsReplyRevealMaxSeconds;
+            return Mathf.Approximately(minDelay, maxDelay) ? minDelay : UnityEngine.Random.Range(minDelay, maxDelay);
+        }
+
+        TurnArchiveRecord GetReplyRecordToDisplay()
+        {
+            return pendingReplyRecord ?? GetLatestReceivedRecord();
+        }
+
+        bool IsPendingReplyRecord(TurnArchiveRecord record)
+        {
+            return record != null && pendingReplyRecord != null && ReferenceEquals(record, pendingReplyRecord);
+        }
+
+        string GetDeskLetterBody(TurnArchiveRecord record)
+        {
+            if (!IsPendingReplyRecord(record)) return record.assistantLetter;
+
+            if (!string.IsNullOrWhiteSpace(pendingReplyText)) return pendingReplyText;
+            return pendingReplyPlaceholder;
+        }
+
+        void RefreshOpenReplyContent()
+        {
+            if (popupLetterContent == null || openDeskRecord == null) return;
+            popupLetterContent.text = GetDeskLetterBody(openDeskRecord);
+        }
+
+        void ApplyPopupCloseState()
+        {
+            if (popupCloseButton == null) return;
+
+            bool canClose = !IsPendingReplyRecord(openDeskRecord) || replyGenerationComplete;
+            popupCloseButton.SetEnabled(canClose);
+            popupCloseButton.text = canClose ? "Return to File" : "Awaiting Full Reply...";
         }
 
         void InitializeWithSeedCorrespondence()
@@ -1113,9 +1368,9 @@ namespace Whisperer
             });
         }
 
-        void RecordArchiveTurn(DateTime sendDate, DateTime replyDate, string playerLetter, string assistantLetter)
+        TurnArchiveRecord RecordArchiveTurn(DateTime sendDate, DateTime replyDate, string playerLetter, string assistantLetter)
         {
-            turnArchive.Add(new TurnArchiveRecord
+            TurnArchiveRecord record = new TurnArchiveRecord
             {
                 turnIndex = timeManager.CurrentTurn + 1,
                 senderName = toName,
@@ -1123,9 +1378,11 @@ namespace Whisperer
                 replyDate = replyDate,
                 playerLetter = playerLetter,
                 assistantLetter = assistantLetter
-            });
+            };
+            turnArchive.Add(record);
 
             RefreshArchiveUi();
+            return record;
         }
 
         void RefreshArchiveUi()
