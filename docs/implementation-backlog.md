@@ -45,6 +45,19 @@ Acceptance Criteria:
 - Non-weather questions do not trigger historical weather injection.
 - Debug output shows detected intent and resolved time range for each historical-weather query.
 
+## Spikes (Investigation)
+
+### S1) Configurable correspondence profiles (Lovecraft-era)
+Priority: Discovery
+Effort: M (investigation), implementation estimate 3-5 days if approved
+Status: Proposed
+Plan: [docs/implementation plan/spike/spike-configurable-correspondence-profiles.md](docs/implementation%20plan/spike/spike-configurable-correspondence-profiles.md)
+Description:
+- Investigate making character portrayal data-driven (names, locations, style guidance, horror framing) while preserving monthly letter mechanics.
+- Keep period constraints and chronology enforcement as fixed guardrails.
+- Define what remains out of scope for first implementation pass (runtime switching, full template editor, save migration).
+
+
 ## P3 - Enhanced UX and Presentation
 
 ### 13) Letter drag-and-drop interactions
