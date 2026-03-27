@@ -69,6 +69,26 @@ public class InteractablesAndLetterOpeningPlayModeTests
         Object.Destroy(carryAnchor);
     }
 
+    [UnityTest]
+    public IEnumerator DrawerStorageDialog_Dismiss_InvokesDismissHandler()
+    {
+        DrawerStorageDialogController dialog = DrawerStorageDialogController.GetOrCreate();
+        bool dismissed = false;
+
+        dialog.Show("Right Top Drawer", System.Array.Empty<CarriableItem>(), _ => false, () => dismissed = true);
+        yield return null;
+
+        Assert.IsTrue(dialog.IsOpen);
+
+        dialog.Dismiss();
+        yield return null;
+
+        Assert.IsFalse(dialog.IsOpen);
+        Assert.IsTrue(dismissed);
+
+        Object.Destroy(dialog.gameObject);
+    }
+
     static void SetPrivateField(object target, string fieldName, object value)
     {
         FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);

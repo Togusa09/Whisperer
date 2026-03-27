@@ -51,5 +51,15 @@ namespace Whisperer
             PlaceAtDeskCore(worldPosition, worldRotation, deskParent);
             IsOpenedAtDesk = true;
         }
+
+        protected override void OnStoredInDrawer()
+        {
+            IsOpenedAtDesk = false;
+        }
+
+        protected override void OnRetrievedFromDrawer()
+        {
+            IsOpenedAtDesk = false;
+        }
     }
 }

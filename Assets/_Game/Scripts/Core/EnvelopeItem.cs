@@ -145,5 +145,15 @@ namespace Whisperer
             Destroy(rootObject);
 #endif
         }
+
+        protected override void OnStoredInDrawer()
+        {
+            IsPlacedOnDesk = false;
+        }
+
+        protected override void OnRetrievedFromDrawer()
+        {
+            IsPlacedOnDesk = false;
+        }
     }
 }

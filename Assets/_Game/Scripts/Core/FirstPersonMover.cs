@@ -36,15 +36,13 @@ namespace Whisperer
 
         void OnEnable()
         {
-            if (lockCursor)
-            {
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
-            }
+            GameCursorController.StateChanged += HandleCursorStateChanged;
+            ApplyCursorState();
         }
 
         void OnDisable()
         {
+            GameCursorController.StateChanged -= HandleCursorStateChanged;
         }
 
         public void SetInputEnabled(bool enabled)
@@ -65,6 +63,11 @@ namespace Whisperer
 
         void UpdateLook(float deltaTime)
         {
+            if (GameCursorController.IsModalUiActive)
+            {
+                return;
+            }
+
             Mouse mouse = Mouse.current;
             if (mouse == null)
             {
@@ -79,6 +82,16 @@ namespace Whisperer
 
             pitch = Mathf.Clamp(pitch - pitchDelta, minPitch, maxPitch);
             pitchTransform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+        }
+
+        void HandleCursorStateChanged()
+        {
+            ApplyCursorState();
+        }
+
+        void ApplyCursorState()
+        {
+            GameCursorController.ApplyGameplayCursor(lockCursor);
         }
 
         void UpdateMovement(float deltaTime)

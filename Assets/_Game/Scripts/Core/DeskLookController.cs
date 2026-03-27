@@ -25,16 +25,13 @@ namespace Whisperer
         void OnEnable()
         {
             CacheCurrentRotation();
-
-            if (lockCursor)
-            {
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
-            }
+            GameCursorController.StateChanged += HandleCursorStateChanged;
+            ApplyCursorState();
         }
 
         void OnDisable()
         {
+            GameCursorController.StateChanged -= HandleCursorStateChanged;
             transform.localRotation = initialLocalRotation;
             yaw = 0f;
             pitch = 0f;
@@ -42,6 +39,11 @@ namespace Whisperer
 
         void Update()
         {
+            if (GameCursorController.IsModalUiActive)
+            {
+                return;
+            }
+
             Mouse mouse = Mouse.current;
             if (mouse == null)
             {
@@ -60,6 +62,16 @@ namespace Whisperer
             initialLocalRotation = transform.localRotation;
             yaw = 0f;
             pitch = 0f;
+        }
+
+        void HandleCursorStateChanged()
+        {
+            ApplyCursorState();
+        }
+
+        void ApplyCursorState()
+        {
+            GameCursorController.ApplyGameplayCursor(lockCursor);
         }
     }
 }

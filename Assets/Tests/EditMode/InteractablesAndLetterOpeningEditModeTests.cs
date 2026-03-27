@@ -101,6 +101,48 @@ public class InteractablesAndLetterOpeningEditModeTests
         Object.DestroyImmediate(carryAnchor);
     }
 
+    [Test]
+    public void DeskDrawerInteractable_StoresAndReturnsLetter()
+    {
+        GameObject carryAnchor = new GameObject("carry-anchor");
+        GameObject drawerObject = new GameObject("LeftTopDrawer");
+        drawerObject.transform.SetParent(new GameObject("PidgeonHoles").transform, worldPositionStays: false);
+        DeskDrawerInteractable drawer = drawerObject.AddComponent<DeskDrawerInteractable>();
+
+        GameObject letterObject = new GameObject("FiledLetter");
+        letterObject.AddComponent<BoxCollider>();
+        LetterItem letter = letterObject.AddComponent<LetterItem>();
+        letter.PickUp(carryAnchor.transform);
+
+        Assert.IsTrue(drawer.StoreItem(letter));
+        Assert.AreEqual(1, drawer.StoredItemCount);
+        Assert.IsFalse(letter.gameObject.activeSelf);
+
+        Assert.IsTrue(drawer.TakeItem(letter, carryAnchor.transform));
+        Assert.AreEqual(0, drawer.StoredItemCount);
+        Assert.IsTrue(letter.gameObject.activeSelf);
+        Assert.IsTrue(letter.IsCarried);
+
+        Object.DestroyImmediate(drawerObject.transform.parent.gameObject);
+        Object.DestroyImmediate(letterObject);
+        Object.DestroyImmediate(carryAnchor);
+    }
+
+    [Test]
+    public void GameCursorController_PushAndPopModalUi_TogglesModalState()
+    {
+        while (GameCursorController.IsModalUiActive)
+        {
+            GameCursorController.PopModalUi();
+        }
+
+        GameCursorController.PushModalUi();
+        Assert.IsTrue(GameCursorController.IsModalUiActive);
+
+        GameCursorController.PopModalUi();
+        Assert.IsFalse(GameCursorController.IsModalUiActive);
+    }
+
     static void SetPrivateField(object target, string fieldName, object value)
     {
         FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);

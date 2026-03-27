@@ -31,10 +31,12 @@ namespace Whisperer
 
         CarriableItem carriedItem;
         bool shouldPlaceOnDeskNextFrame = false;
+    bool drawerDialogOpen;
         DeskModeInteractable lastUsedDeskInteractable;
 
         public bool IsDeskMode => modeSwitcher != null && modeSwitcher.CurrentMode == PlayerMode.Desk;
-        bool HasCarriedItem => carriedItem != null;
+    public bool HasCarriedItem => carriedItem != null;
+    public CarriableItem CarriedItem => carriedItem;
 
         Camera ActiveInteractionCamera
         {
@@ -72,11 +74,13 @@ namespace Whisperer
             }
 
             EnsureInteractionHud();
+            DeskDrawerInteractable.EnsureSceneDrawers();
         }
 
         void OnEnable()
         {
             EnsureInteractionHud();
+            DeskDrawerInteractable.EnsureSceneDrawers();
         }
 
         void OnDisable()
@@ -117,6 +121,12 @@ namespace Whisperer
                 return;
             }
 
+            if (drawerDialogOpen)
+            {
+                interactionHud?.SetState(false, "");
+                return;
+            }
+
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null)
             {
@@ -148,7 +158,14 @@ namespace Whisperer
             {
                 if (TryGetInteractableHit(out StudyInteractable carriedInteractable))
                 {
-                    if (!IsDeskMode && carriedInteractable.TryInteract(this))
+                    if (IsDeskMode)
+                    {
+                        if (carriedInteractable.CanInteractWhileCarrying(this) && carriedInteractable.TryInteract(this))
+                        {
+                            return;
+                        }
+                    }
+                    else if (carriedInteractable.TryInteract(this))
                     {
                         shouldPlaceOnDeskNextFrame = true;
                         return;
@@ -294,6 +311,14 @@ namespace Whisperer
             if (carriedDeskProp == null)
             {
                 return;
+            }
+
+            if (IsDeskMode && TryGetInteractableHit(out StudyInteractable carriedInteractable))
+            {
+                if (carriedInteractable.CanInteractWhileCarrying(this) && carriedInteractable.TryInteract(this))
+                {
+                    return;
+                }
             }
 
             if (IsDeskMode)
@@ -633,6 +658,12 @@ namespace Whisperer
 
         void RefreshHoverState()
         {
+            if (drawerDialogOpen)
+            {
+                interactionHud?.SetState(false, "");
+                return;
+            }
+
             if (!TryGetInteractionTarget(out CarriableItem item, out StudyInteractable interactable))
             {
                 interactionHud?.SetState(false, "");
@@ -653,7 +684,12 @@ namespace Whisperer
             }
             else if (interactable != null)
             {
-                actionLabel = interactable.InteractionPrompt;
+                actionLabel = interactable.GetInteractionPrompt(this);
+                if (string.IsNullOrEmpty(actionLabel))
+                {
+                    interactionHud?.SetState(false, "");
+                    return;
+                }
             }
 
             string prompt = string.IsNullOrEmpty(actionLabel) ? "" : $"Press E to {actionLabel}";
@@ -686,6 +722,58 @@ namespace Whisperer
             else
             {
                 itemTransform.position = desiredWorldPosition;
+            }
+        }
+
+        public bool TryStoreCarriedItemInDrawer(DeskDrawerInteractable drawer)
+        {
+            if (drawer == null || carriedItem == null)
+            {
+                return false;
+            }
+
+            if (!drawer.StoreItem(carriedItem))
+            {
+                return false;
+            }
+
+            carriedItem = null;
+            return true;
+        }
+
+        public bool TryTakeItemFromDrawer(DeskDrawerInteractable drawer, CarriableItem item)
+        {
+            if (drawer == null || item == null || HasCarriedItem)
+            {
+                return false;
+            }
+
+            Transform targetCarryAnchor = GetActiveCarryAnchor();
+            if (targetCarryAnchor == null)
+            {
+                return false;
+            }
+
+            if (!drawer.TakeItem(item, targetCarryAnchor))
+            {
+                return false;
+            }
+
+            carriedItem = item;
+            if (IsDeskMode)
+            {
+                AdjustCarriedItemForDeskVisibility();
+            }
+
+            return true;
+        }
+
+        public void SetDrawerDialogOpen(bool isOpen)
+        {
+            drawerDialogOpen = isOpen;
+            if (isOpen)
+            {
+                interactionHud?.SetState(false, "");
             }
         }
 

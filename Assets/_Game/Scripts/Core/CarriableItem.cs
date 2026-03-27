@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -22,8 +23,13 @@ namespace Whisperer
         [Header("Interaction")]
         [SerializeField] string exploreActionLabel = "Pick Up";
         [SerializeField] string deskActionLabel = "Pick Up";
+        [SerializeField] string storageDisplayName = "";
 
         public bool IsCarried { get; protected set; }
+        public virtual bool CanStoreInDrawer => true;
+        public string StorageDisplayName => string.IsNullOrWhiteSpace(storageDisplayName)
+            ? HumanizeName(ItemRoot != null ? ItemRoot.name : gameObject.name)
+            : storageDisplayName;
         protected Transform ItemRoot => itemRoot != null ? itemRoot : transform;
 
         protected virtual void Awake()
@@ -94,6 +100,37 @@ namespace Whisperer
             {
                 itemRigidbody.linearVelocity = forwardDirection.normalized * dropVelocity;
             }
+        }
+
+        public virtual void StoreInContainer(Transform storageParent)
+        {
+            EnsureInitialized();
+
+            Transform targetParent = storageParent != null ? storageParent : transform;
+
+            IsCarried = false;
+            itemRoot.SetParent(targetParent, worldPositionStays: false);
+            itemRoot.localPosition = Vector3.zero;
+            itemRoot.localRotation = Quaternion.identity;
+
+            SetPhysicsForCarriedState();
+            OnStoredInDrawer();
+            itemRoot.gameObject.SetActive(false);
+        }
+
+        public virtual bool TryRetrieveFromContainer(Transform carryAnchor)
+        {
+            EnsureInitialized();
+
+            if (carryAnchor == null)
+            {
+                return false;
+            }
+
+            itemRoot.gameObject.SetActive(true);
+            OnRetrievedFromDrawer();
+            PickUp(carryAnchor);
+            return true;
         }
 
         protected void PlaceAtDeskCore(Transform deskAnchor)
@@ -181,6 +218,42 @@ namespace Whisperer
 
             Vector3 localCenter = ItemRoot.InverseTransformPoint(bounds.center);
             return carriedVisualOffset - localCenter;
+        }
+
+        protected virtual void OnStoredInDrawer()
+        {
+        }
+
+        protected virtual void OnRetrievedFromDrawer()
+        {
+        }
+
+        static string HumanizeName(string rawName)
+        {
+            if (string.IsNullOrWhiteSpace(rawName))
+            {
+                return "Item";
+            }
+
+            string cleaned = rawName.Replace("(Clone)", "").Replace('_', ' ').Trim();
+            if (cleaned.Length == 0)
+            {
+                return "Item";
+            }
+
+            System.Text.StringBuilder builder = new System.Text.StringBuilder(cleaned.Length + 8);
+            for (int i = 0; i < cleaned.Length; i += 1)
+            {
+                char current = cleaned[i];
+                if (i > 0 && char.IsUpper(current) && cleaned[i - 1] != ' ' && !char.IsUpper(cleaned[i - 1]))
+                {
+                    builder.Append(' ');
+                }
+
+                builder.Append(current);
+            }
+
+            return builder.ToString().Trim();
         }
     }
 }
