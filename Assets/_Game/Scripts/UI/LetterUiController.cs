@@ -1185,6 +1185,8 @@ namespace Whisperer
 
         void ClearPendingReplySession(bool hidePopup)
         {
+            bool shouldHidePopup = hidePopup && openDeskRecord != null && pendingReplyRecord != null && ReferenceEquals(openDeskRecord, pendingReplyRecord);
+
             activeReplySessionId++;
             activeReplyAttemptId++;
             pendingReplyRecord = null;
@@ -1198,7 +1200,7 @@ namespace Whisperer
                 queuedReplyTextDirty = false;
             }
 
-            if (hidePopup && IsPendingReplyRecord(openDeskRecord) && letterPopupOverlay != null)
+            if (shouldHidePopup && letterPopupOverlay != null)
             {
                 letterPopupOverlay.style.display = DisplayStyle.None;
                 openDeskRecord = null;

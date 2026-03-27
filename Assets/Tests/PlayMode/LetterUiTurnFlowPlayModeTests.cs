@@ -126,10 +126,11 @@ public class LetterUiTurnFlowPlayModeTests
     public IEnumerator ReplyReveal_AllowsOpeningBeforeGenerationCompletes()
     {
         SceneManager.LoadScene(ScenePath, new LoadSceneParameters(LoadSceneMode.Single));
-        yield return null;
+        yield return WaitForControllerInScene(ScenePath, 5f);
 
         LetterUiController controller = UnityEngine.Object.FindAnyObjectByType<LetterUiController>();
         Assert.NotNull(controller, "LetterUiController missing from scene.");
+        DisableWarmupForTests(controller);
 
         FakeStreamingLetterModelClient fake = controller.gameObject.AddComponent<FakeStreamingLetterModelClient>();
         fake.initialDelaySeconds = 0f;
@@ -137,6 +138,8 @@ public class LetterUiTurnFlowPlayModeTests
         controller.minReplyRevealSeconds = 0.05f;
         controller.maxReplyRevealSeconds = 0.05f;
         controller.modelClient = fake;
+
+        yield return WaitForControllerReady(controller, 5f);
 
         Task sendTask = controller.SendTurnForTests("I write to ask if the disturbances have continued.");
         yield return null;
@@ -163,10 +166,11 @@ public class LetterUiTurnFlowPlayModeTests
     public IEnumerator OpeningBeforeFirstChunk_ShowsPlaceholderUntilTextArrives()
     {
         SceneManager.LoadScene(ScenePath, new LoadSceneParameters(LoadSceneMode.Single));
-        yield return null;
+        yield return WaitForControllerInScene(ScenePath, 5f);
 
         LetterUiController controller = UnityEngine.Object.FindAnyObjectByType<LetterUiController>();
         Assert.NotNull(controller, "LetterUiController missing from scene.");
+        DisableWarmupForTests(controller);
 
         FakeStreamingLetterModelClient fake = controller.gameObject.AddComponent<FakeStreamingLetterModelClient>();
         fake.initialDelaySeconds = 0.2f;
@@ -174,6 +178,8 @@ public class LetterUiTurnFlowPlayModeTests
         controller.minReplyRevealSeconds = 0.05f;
         controller.maxReplyRevealSeconds = 0.05f;
         controller.modelClient = fake;
+
+        yield return WaitForControllerReady(controller, 5f);
 
         Task sendTask = controller.SendTurnForTests("I write to ask if the disturbances have continued.");
         yield return null;
