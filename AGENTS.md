@@ -17,3 +17,10 @@
 	- Monthly letter cadence.
 	- Historical and chronology constraints.
 	- 1930 knowledge cutoff and period-appropriate speculation limits.
+
+## Test execution policy for AI agents
+
+- Do not use `dotnet test` to validate Unity tests in this repository.
+- Unity-generated test projects compile under `dotnet test`, but the Unity Test Runner tests are not executed there.
+- Use `dotnet build Whisperer.slnx -nologo` for compile-only verification.
+- Use Unity Test Runner (batch mode) for actual test execution.

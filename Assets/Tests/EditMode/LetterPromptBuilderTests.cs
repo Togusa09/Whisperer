@@ -48,7 +48,7 @@ public class LetterPromptBuilderTests
         StringAssert.Contains("Player send date:", prompt);
         StringAssert.Contains("Relevant chronology and context:", prompt);
         StringAssert.Contains("Canon context", prompt);
-        StringAssert.Contains("previous letter summary", prompt.ToLowerInvariant());
+        StringAssert.Contains("topics already covered in your last letter", prompt.ToLowerInvariant());
         StringAssert.Contains("Retrieval trace:", builder.LastRetrievalTrace);
         UnityEngine.Object.DestroyImmediate(go);
     }
